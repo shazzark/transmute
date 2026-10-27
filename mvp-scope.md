@@ -14,10 +14,10 @@ One user, one phone, no network: select a video from device storage, convert it 
 
 | Priority | Capability | User value | Acceptance signal | Dependencies/status |
 |---|---|---|---|---|
-| P0 | Pick a source file through the Storage Access Framework (video or audio) | Conversion without broad storage permission; the user keeps control | The chosen file's name and size appear, with duration or an explicit "unknown" | `@react-native-documents/picker` 12.0.3 [Confirmed available]; MIME filtering [Recommended] |
-| P0 | Convert to MP4 (H.264 video, AAC audio) | The compatibility fix most users actually need | Output plays in a third-party player; desktop `ffprobe` reports `h264` + `aac` | `ffmpeg-kit-extended` 1.0.0 [Confirmed available; integration **Unverified**] |
+| P0 | Pick a source file through the system document UI (video or audio) | Conversion without broad storage permission; the user keeps control | The chosen file's name and size appear, with duration or an explicit "unknown" | `expo-document-picker` 58.0.4 [Confirmed available]; the picker copies the file into the app cache, which is the FFmpeg input; MIME filtering [Recommended] |
+| P0 | Convert to MP4 (H.264 video, AAC audio) | The compatibility fix most users actually need | Output plays in a third-party player; desktop `ffprobe` reports `h264` + `aac` | `munim-ffmpeg` 0.9.2 [Confirmed available; integration **Unverified**] |
 | P0 | Live progress, elapsed time, and cancel | Long jobs become tolerable and reversible | Progress rises monotonically from real FFmpeg statistics and reaches 100% before success; cancel ends the job and removes its temporary output | Phase 1 |
-| P0 | Save to a user-chosen SAF destination | Files land where the user looks for them | Output visible in the system Files app at the chosen folder | Streaming SAF writer [planned custom native module — [Open question]] |
+| P0 | Save to a user-chosen destination | Files land where the user looks for them | Output visible in the system Files app at the chosen folder | **Not Phase 1** (O-3): the Phase 1 result stays in the app cache and the path is shown. Phase 2 adds the write path, starting with `expo-file-system`'s StorageAccessFramework API before any custom native module |
 | P0 | A specific message and recovery action for every terminal failure | Users know what happened and what to do | No failure path ends in a silent no-op or a generic "error" | Error taxonomy (TR-30) |
 | P0 | Large-file handling above 1 GB | The headline promise most converters break | A 1.2 GB input completes with no out-of-memory kill and no ANR; cache returns to pre-job size | Streaming copy (TR-05/06), free-space preflight (TR-07) |
 | P0 | Background survival (foreground service + notification) | Locking the phone must not destroy the job | Job completes with the screen off and the app backgrounded; the notification shows progress and offers cancel | TR-10, TR-29 |
@@ -48,12 +48,12 @@ Share-sheet intake; resumable jobs; hardware encoders; per-file presets; output-
 
 | ID | Constraint or decision | Impact if unresolved | Owner/needed by |
 |---|---|---|---|
-| O-1 | Which device or emulator (and API level) is used for verification. **Measured 2026-10-27:** one AVD, `Pixel_5` (x86_64, target `android-37.0`, 2 GB RAM); no physical device attached; no API 26 image installed | Blocks Phase 1 acceptance; large-file and background claims stay unverified | Owner, before Phase 1 |
-| O-2 | `ffmpeg-kit-extended@1.0.0` New Architecture compatibility | Blocks the whole project; stop condition in Phase 1 | Owner, Phase 1 |
-| O-3 | Whether a small custom Kotlin SAF reader/writer module is required (the picker returns URIs, not streams) | Blocks saving the result and large-file handling | Owner, Phase 1 |
-| O-4 | GPL-3.0 audit of the shipped native libraries | Blocks public distribution, not local builds | Owner, before Phase 7 release |
+| O-1 | Which device (and API level) is used for verification. **Answered 2026-10-27:** a physical Android phone over USB debugging — built and installed with `npx expo run:android --device <adb serial>`; the emulator is closed and out of the workflow. **Measured on the phone 2026-10-27:** API level 34 (Android 14), model SM-A135F, primary ABI `armeabi-v7a` | Blocks Phase 1 acceptance; large-file and background claims stay unverified | Owner — answered and recorded; the API 26 floor and API 33 notification behaviour cannot be run on this single device and are code-reviewed instead |
+| O-2 | `munim-ffmpeg@0.9.2` compatibility with the target under the New Architecture (Expo development build). **Answered 2026-10-27:** proceed with 0.9.2. If `npx expo prebuild` or `npx expo run:android` fails because of the engine, the exact error is recorded and the work stops — no silent fallback, and the fallback in `trd.md` is used only with the owner's explicit approval | Blocks the whole project; stop condition in Phase 1 | Owner — answered |
+| O-3 | Whether a small custom Kotlin SAF reader/writer module is required (the picker returns URIs, not streams). **Answered 2026-10-27:** dropped for Phase 1. `expo-document-picker` copies the selection into the app cache and that cached path is the FFmpeg input; a custom Kotlin streaming module may return **only** if a >1 GB test proves the cache copy insufficient, and that is a later phase, not Phase 1 | Saving to a user-chosen folder moves to Phase 2; large-file handling keeps a known copy cost | Owner — answered |
+| O-4 | Licence audit of the shipped native libraries before public distribution. **Answered 2026-10-27 for the project licence:** the application code is MIT (`LICENSE`); the LGPLv3 FFmpeg is conveyed through `THIRD_PARTY_NOTICES.md` (full licence text, build configuration, relink statement) with the GPLv3 text at `LICENSES/GPL-3.0.txt`. The line-by-line audit of the remaining bundled libraries is still owed | Blocks public distribution, not local builds | Owner — project licence answered; library audit due before the Phase 7 release |
 | O-5 | Maestro versus Detox for end-to-end tests on Windows | Blocks the automated E2E gate in Phase 7 | Owner, Phase 7 |
-| O-6 | Audio handling default: re-encode AAC 128 kbps (compatibility) versus copy when already AAC (speed) | Affects output predictability; recommend always re-encoding for MVP | Owner, Phase 1 |
+| O-6 | Audio handling default. **Answered 2026-10-27: MP3** for audio-only output. Video presets always re-encode their audio track to AAC rather than copying it, so the output is predictable | Affects output predictability | Owner — answered |
 
 **Cut line.** Under schedule or risk pressure, defer in this order: subtitles (already P2), batch queue, audio extraction. Never defer: temporary-file cleanup, error reporting, the no-network and no-broad-storage-permission constraints, or background survival for long jobs — without those the product breaks its core promise.
 
@@ -72,5 +72,5 @@ None. There is no existing product, stored data, or installed base, so no migrat
 
 ## Approval
 
-Approver: `shazzark` (repository owner). Approved scope/version: none yet — this is `v0.1-mvp`, Draft. Conditions: O-1 through O-3 must be answered before Phase 1 can start, because each changes what Phase 1 must prove. A planned MVP is not user-validated until representative users actually try it.
+Approver: `shazzark` (repository owner). Approved scope/version: none yet — this is `v0.1-mvp`, Draft. Conditions: O-1 is answered (physical device over USB debugging, emulator out of scope); O-2, O-3, and O-6 must still be answered before Phase 1 can start, because each changes what Phase 1 must prove. A planned MVP is not user-validated until representative users actually try it.
 

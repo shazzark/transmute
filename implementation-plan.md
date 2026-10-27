@@ -19,14 +19,15 @@ Nothing is approved yet. The plan consumes these drafts: `project-brief.md` (why
 | `appflow.md` | Not created. The primary journey is a single linear path documented in `architecture.md` ("Key flows"). |
 | `risk-register.md`, `architecture-decision-record.md`, `external-integrations.md`, `database-schema.md` | Not created. Risks are carried in each phase; D1–D8 in `architecture.md` serve as lightweight decision records; there are no external integrations and no database. |
 
-**Blocking decisions before Phase 1 starts**
+**Decisions that blocked Phase 1 — all answered 2026-10-27**
 
-| ID | Question | Why it blocks |
+| ID | Question | Why it blocked |
 |---|---|---|
-| O-1 | Device or emulator, and its API level | Phase 1 acceptance requires a real Android target; the >1 GB and background claims cannot be faked |
-| O-2 | New-Architecture compatibility of `ffmpeg-kit-extended@1.0.0` | If it does not work, the whole plan changes, not just one phase |
-| O-3 | Confirmation that a small custom SAF streaming module is acceptable (it is the planned answer) | Determines whether Phase 1 includes native code |
-| O-6 | Audio default (re-encode AAC 128 kbps) | Changes the argv the Phase 1 tests assert |
+| O-1 | Device and API level the work is verified on. **Answered 2026-10-27:** a physical Android phone over USB debugging, built and installed with `npx expo run:android --device <adb serial>`; the emulator is closed and out of the workflow. **Measured:** API 34 (Android 14), model SM-A135F, primary ABI `armeabi-v7a` | Phase 1 acceptance requires a real Android target with a hardware encoder; the >1 GB and background claims cannot be faked, and an emulator has no hardware encoder |
+| O-2 | Whether `munim-ffmpeg` (Nitro module, Expo development build) runs unpatched under the New Architecture on the target. **Answered 2026-10-27:** proceed with `munim-ffmpeg@0.9.2`. A prebuild or build failure caused by the engine is recorded verbatim and stops the work; the documented fallback needs the owner's explicit approval | If it does not work, the whole plan changes, not just one phase |
+| O-3 | Whether a small custom Kotlin SAF streaming module is acceptable. **Answered 2026-10-27: not needed for Phase 1** — `expo-document-picker` copies the selection into app cache and that path is FFmpeg's input. A custom Kotlin streaming module may return only if a >1 GB test proves the cache copy insufficient, in a later phase | It decided whether Phase 1 includes native code of our own; it now does not |
+| O-6 | Audio default. **Answered 2026-10-27: MP3** for audio-only output, with MP4 video presets re-encoding audio to AAC | It changes the argv the Phase 1 tests assert |
+| O-4 | Project licence. **Answered 2026-10-27: MIT** for the application code, with the LGPLv3 FFmpeg conveyed through `THIRD_PARTY_NOTICES.md` and `scripts/ffmpeg-build.md` | It decides what `LICENSE` says and what ships in the notice screen |
 
 **Milestones (sequence, not dates)**
 
@@ -45,20 +46,20 @@ Dependencies: M2 depends on M1; M3 depends on M2 (a service is only worth adding
 ### Phase 1 — Core vertical slice: pick, convert, save, with real progress
 
 - **Objective:** Prove the riskiest thing first — that FFmpeg runs inside this app on a real Android target — and complete one honest end-to-end conversion.
-- **Scope:** Scaffold the RN 0.81.6 TypeScript app in this repository (preserving `Readme.md` and Git history); configure the Android toolchain; integrate `ffmpeg-kit-extended` and prove a smoke call; select a file via SAF; probe it; convert to MP4 (H.264 + AAC); stream source to cache and result to a SAF destination; show progress from engine statistics; cancel; show success and failure states using the design tokens; set up Vitest with argv, parser, naming, and estimator tests. **Excluded:** multiple formats, queue, >1 GB optimisation, background service, subtitles, accessibility audit, licence screen.
-- **Dependencies:** O-1 (target), O-2 (engine compatibility), O-3 (SAF module approval), O-6 (audio default); Android SDK and a JDK exported in the shell. Measured 2026-10-27: `ANDROID_HOME` unset, no `java` on `PATH`, `JAVA_HOME` empty; Android Studio's JDK exists at `C:\Program Files\Android\Android Studio\jbr`; AVD `Pixel_5` (API 37, x86_64, 2 GB) is the only target.
-- **Deliverables:** a runnable debug app; `src/domain` with tested builders and parsers; `src/services` with the engine adapter and storage gateway; a conversion screen wired to the job pipeline; a short `README` update describing how to run it; recorded test output.
+- **Scope:** Scaffold an Expo SDK 58 app (blank TypeScript template) with `npx create-expo-app` at the repository root, preserving `Readme.md` and Git history; adopt continuous native generation with no committed `android/` directory and generate the native project with `npx expo prebuild`; configure the Android toolchain; integrate `munim-ffmpeg@0.9.2` + `react-native-nitro-modules` through the engine's config plugin and prove a smoke call from a development build; select a file with `expo-document-picker` (which copies it into app cache); probe it; convert to MP4 (H.264 + AAC); show progress from engine statistics; show success with the cache output path and failure with the engine's own message. **Excluded:** destination writing (Phase 2), multiple formats, queue, >1 GB optimisation, background service, subtitles, accessibility audit, licence screen, any native module written by this project.
+- **Dependencies:** O-1 to O-6 (all answered 2026-10-27: physical phone, engine 0.9.2, `expo-document-picker` instead of a Kotlin module, MIT licence, MP3 default); Android SDK and a JDK exported in the shell. Measured 2026-10-27: `ANDROID_HOME` unset, no `java` on `PATH`, `JAVA_HOME` empty; the SDK is present with `adb.exe` at `C:\Users\chido\AppData\Local\Android\Sdk\platform-tools\adb.exe`, and Android Studio's JDK exists at `C:\Program Files\Android\Android Studio\jbr` and reports `openjdk 21.0.9`, so both need exporting in the session rather than installing; the verification target is the owner's phone over USB debugging, which `adb devices` now lists as `device` (API 34, `armeabi-v7a`), so the build gate is `npx expo run:android --device` with only that device attached and no emulator fallback. Two network-dependent setup steps belong to this phase: `npm install` fetches the engine's prebuilt FFmpeg libraries (checksum-verified, well over 100 MB across three ABIs) and the first `npx expo run:android` downloads Gradle dependencies plus the development client (`trd.md` constraint 7).
+- **Deliverables:** a runnable debug app; `src/domain` with tested builders, encoder preference, and filename sanitiser; `src/native/ffmpeg.ts` as the thin engine adapter; the `expo-document-picker` intake adapter; a conversion screen wired to the conversion call; a short `Readme.md` update describing how to run it; recorded test output.
 - **Acceptance criteria:**
   1. The app launches on the target and shows the idle state from `prd.md` PR-14.
   2. Picking a 30–60 second MP4 shows name, size, and duration (PR-01, PR-02).
-  3. Convert writes an MP4 to the chosen folder; desktop `ffprobe` reports `h264` and `aac`; a third-party player opens it (PR-03, PR-09, TR-02).
+  3. Convert writes an MP4 into the app cache (Phase 1 has no destination write), the path is shown, and a third-party player opens it; desktop `ffprobe` reports `h264` and `aac` (PR-03, PR-09, TR-02).
   4. The progress bar follows real statistics, never decreases, and reaches 100% before the success state (TR-04).
   5. Cancel during conversion ends in "Cancelled" with the job cache removed (TR-08, TR-11).
-  6. An unsupported file and a revoked-grant file each show their own message, never a bare "Error" (TR-30).
-  7. Vitest covers argv (including adversarial names), statistics parsing, probe parsing, name/collision rules, and space estimation; adversarial-name cases assert full argv arrays (TR-03, TR-16, TR-22).
+  6. An unsupported file and a file the provider refuses to copy each show their own message, never a bare "Error" (TR-30).
+  7. Vitest covers the argv builder (happy path, invalid input, missing option, and the MP3/FLAC/OPUS target mapping), encoder preference (hardware then software then a specific error), and filename sanitising (separators, reserved characters, forced extension); adversarial names are asserted as full argv arrays (TR-03, TR-16, TR-22).
   8. `npx tsc --noEmit` is clean and the merged manifest contains no `INTERNET` permission (TR-01, TR-13).
-- **Verification:** `npx vitest run`; `npx tsc --noEmit`; `cd android; .\gradlew.bat assembleDebug`; `npx react-native run-android`; manual device checklist with screenshots and the `ffprobe` output pasted into the phase report.
-- **Risks/blockers:** the engine may not register under New Architecture (stop and report, do not patch blindly); the NDK/C++ build may fail on a Windows path with spaces or a long workspace path; the picker returns URIs without streams, which is why the custom gateway exists; Gradle may target an unavailable JDK.
+- **Verification:** `npx vitest run`; `npx tsc --noEmit`; `npx expo run:android --device <adb serial>` (which runs the Gradle build, installs the development client, and launches the app on the phone — expect the first run to download the client and dependencies); manual device checklist with screenshots and the `ffprobe` output pasted into the phase report.
+- **Risks/blockers:** the Nitro module may not register under the New Architecture in a prebuild-generated project (stop and report, do not patch blindly); the phone's encoder inventory is unknown until `listEncoders()` runs, so H.264 may resolve to the much slower `libopenh264` — and the target is a 32-bit `armeabi-v7a` device, so a software encode of even a 30-second clip may take minutes; record what `pickEncoder` actually selects instead of assuming the fast path, and keep the cable connected because a dropped USB connection aborts the install; the NDK/C++ build may fail on a Windows path with spaces or a long workspace path; the picker copies the whole file into cache, which is the cost Phase 2 measures; Gradle may target an unavailable JDK.
 - **Completion conditions:** all eight acceptance criteria evidenced, test output and device checklist attached to the phase report, no uncommitted debugging code, and the owner's explicit approval to continue. **Stop conditions:** engine incompatibility after documented attempts; no Android target available; any required dependency whose licence would change the project's distribution terms.
 
 ### Phase 2 — Real files: streaming, space, cleanup, cancel everywhere
@@ -114,7 +115,7 @@ Dependencies: M2 depends on M1; M3 depends on M2 (a service is only worth adding
 
 - **Objective:** Deliver the advertised formats the build actually supports, without touching UI logic.
 - **Scope:** Presets for MKV, WEBM, M4V/MOV containers and audio extraction to MP3, AAC, WAV, FLAC, OGG/OPUS; capability detection for codecs that are absent from the build; preset-aware validation (e.g. no audio stream → extraction disabled); documented support matrix. **Excluded:** subtitles, hardware encoders, size targeting, remux-only fast path.
-- **Dependencies:** Phase 1 argv builder and preset model; Phase 2 pipeline; knowledge of which libraries the built AAR contains (TR-27 audit input).
+- **Dependencies:** Phase 1 argv builder and preset model; Phase 2 pipeline; knowledge of which libraries the bundled `libmunimffmpeg.so` contains (TR-27 audit input).
 - **Deliverables:** expanded preset catalogue with a test row per preset; support matrix in the README; disabled-state reasons in the selector.
 - **Acceptance criteria:**
   1. Every enabled preset converts a fixture and desktop `ffprobe` confirms the requested container and codec (TR-18).
@@ -122,7 +123,7 @@ Dependencies: M2 depends on M1; M3 depends on M2 (a service is only worth adding
   3. A preset that cannot apply is disabled with a visible reason and never falls back silently (TR-19).
   4. Audio extraction produces a playable audio file with the expected duration (±1 second of the source, allowing for encoder padding).
 - **Verification:** one command-builder test per preset asserting the full argv; device conversion per enabled preset with `ffprobe` output recorded; manual playback of each result.
-- **Risks/blockers:** the AAR may not include every advertised codec; the honest answer is a documented "unsupported", not a build hack. Some combinations are slow enough that the device test needs patience rather than a timeout bump.
+- **Risks/blockers:** the bundled binary may not include every advertised codec; the honest answer is a documented "unsupported", not a build hack. Some combinations are slow enough that the device test needs patience rather than a timeout bump.
 - **Completion conditions:** matrix complete and truthful, tests per preset, owner approval.
 
 ### Phase 6 — Subtitles: embed and extract
@@ -149,8 +150,8 @@ Dependencies: M2 depends on M1; M3 depends on M2 (a service is only worth adding
 - **Acceptance criteria:**
   1. TalkBack reads every control meaningfully; progress announces at phase change and completion; nothing is clipped at 200% text scale (TR-20).
   2. Token-contrast tests pass as part of `npx vitest run` (TR-20).
-  3. The licence audit lists each native library and its licence, `LICENSE` holds the complete GPL-3.0 text, and the notice screen names the components and the source offer (TR-27).
-  4. The automated journey runs green on a device or emulator, or its absence is reported with the manual checklist as substitute evidence (TR-23).
+  3. The licence audit lists each native library and its licence, `LICENSE` holds the MIT text, `THIRD_PARTY_NOTICES.md` conveys the LGPLv3 text with the relink route, and the notice screen names the components and the source offer (TR-27).
+  4. The automated journey runs green on the physical device, or its absence is reported with the manual checklist as substitute evidence (TR-23).
   5. A release build installs and completes a conversion; artifact sizes are recorded; no keystore is committed (TR-26).
   6. The merged manifest contains no `INTERNET` and no broad storage permission (TR-13).
   7. The README's feature list and requirements match what was actually verified — claims that could not be proven are removed or marked (TR-27, `Readme.md` [Unverified] items).
@@ -162,7 +163,7 @@ Dependencies: M2 depends on M1; M3 depends on M2 (a service is only worth adding
 
 - Any new requirement is added to `prd.md` with a certainty label, then to `trd.md` if it has technical consequences, then scheduled in this plan — in that order, so work never exists only in a chat.
 - Scope changes that contradict `mvp-scope.md` require the owner's explicit approval and a version bump in the affected documents.
-- Discovered constraints that invalidate a decision (D1–D8, TD-1–TD-6) are recorded as a new decision with the evidence that forced it; the old decision is kept, not deleted, so the history explains itself.
+- Discovered constraints that invalidate a decision (D1–D8, TD-1–TD-8) are recorded as a new decision with the evidence that forced it; the old decision is kept, not deleted, so the history explains itself.
 - A phase that cannot meet its acceptance criteria is reported as incomplete. Criteria are never quietly relaxed to close a phase; if a criterion was wrong, it is changed explicitly and re-approved.
 
 ## Approval and handoff

@@ -16,7 +16,7 @@ Goals: the user finishes a conversion without training; the app never leaves deb
 
 - **Single local user.** There are no accounts, roles, or sharing, so no authorization model exists beyond Android's own grants.
 - **Permissions the product may request:**
-  - Storage Access Framework grants only, chosen by the user per file and per destination folder. No `READ_EXTERNAL_STORAGE`, no `WRITE_EXTERNAL_STORAGE`, no `MANAGE_EXTERNAL_STORAGE` [Recommended].
+  - File access only through the system document UI the user drives — one pick per file, and (from Phase 2) one folder choice for output. No `READ_EXTERNAL_STORAGE`, no `WRITE_EXTERNAL_STORAGE`, no `MANAGE_EXTERNAL_STORAGE` [Recommended].
   - `POST_NOTIFICATIONS` on Android 13+ so the progress notification is visible [Recommended; detail in TR-29].
   - No internet permission at all — a product promise, not only a technical choice.
 - The app stays usable if a user denies notifications: conversion still works, only the notification is missing.
@@ -25,10 +25,10 @@ Goals: the user finishes a conversion without training; the app never leaves deb
 
 ### PR-01 Select a source file
 
-- **Requirement:** The user taps "Choose file", the system document picker opens filtered to video and audio, and the chosen item becomes the current source. Cancelling the picker leaves the previous state untouched. Only `content://` URIs are accepted; the app never resolves raw filesystem paths.
+- **Requirement:** The user taps "Choose file", the system document picker opens filtered to video and audio, and the chosen item becomes the current source. Cancelling the picker leaves the previous state untouched. `expo-document-picker` copies the chosen item into the app cache and hands back a local path plus its display name, size, and MIME type; that cached copy is what the app reads, so no `content://` URI or raw filesystem path is ever used as the conversion input.
 - **Priority/status:** P0, planned.
 - **Acceptance criteria:** Given the idle screen, when the user picks a video and confirms, then the app shows the file name and size plus either a duration or the text "Duration unknown". Given the picker is cancelled, when the user returns, then the previous selection is still shown and no job starts.
-- **Related journey/dependency:** Phase 1; `@react-native-documents/picker`.
+- **Related journey/dependency:** Phase 1; `expo-document-picker` (copies into cache; TD-1).
 
 ### PR-02 Show what was selected, and refuse unreadable input early
 
@@ -53,14 +53,14 @@ Goals: the user finishes a conversion without training; the app never leaves deb
 
 ### PR-05 Choose the destination and remember it for the session
 
-- **Requirement:** Before the first conversion the user picks a destination folder through the system directory picker; the choice is remembered for the app session so later jobs do not re-ask. The chosen folder is shown as text on the conversion screen with a way to change it.
+- **Requirement (Phase 2):** Before the first conversion the user picks a destination folder through the system directory picker; the choice is remembered for the app session so later jobs do not re-ask. The chosen folder is shown as text on the conversion screen with a way to change it. **Phase 1 has no destination write** (O-3, 2026-10-27): the result stays in app cache and the success state shows its path.
 - **Priority/status:** P0, planned.
 - **Acceptance criteria:** Given no destination has been chosen, when the user taps Convert, then the directory picker opens instead of starting a job. Given a destination was chosen earlier in the same session, when a second job starts, then it saves there without asking again. Given the user changes the folder, when the next job runs, then the new folder is used and displayed.
-- **Related journey/dependency:** Phase 1; [Open question] whether the picker can be pre-filled with the source file's parent folder.
+- **Related journey/dependency:** Phase 2 (not Phase 1); [Open question] whether the picker can be pre-filled with the source file's parent folder.
 
 ### PR-06 Start preconditions
 
-- **Requirement:** Convert is enabled only when a source is probed successfully, a preset applies, and a destination exists. Before the job starts, free space is checked against the estimated output size plus headroom; the job refuses to start when storage is insufficient.
+- **Requirement:** Convert is enabled only when a source is probed successfully and a preset applies; from Phase 2 it also requires a destination. Before the job starts, free space is checked against the estimated output size plus headroom; the job refuses to start when storage is insufficient.
 - **Priority/status:** P0, planned.
 - **Acceptance criteria:** Given a file whose estimated output would not fit, when Convert is tapped, then a message states the shortfall and nothing is copied or converted. Given a file that fits, when Convert is tapped, then the job enters its first visible state immediately (no silent pause).
 - **Related journey/dependency:** TR-07; PR-12.
@@ -81,10 +81,10 @@ Goals: the user finishes a conversion without training; the app never leaves deb
 
 ### PR-09 Completion, open, and share
 
-- **Requirement:** A successful job shows the output name, its folder, and two actions: "Open" (hands the file to another app via the system viewer) and "Share". If no app can open the file, the app says so and still shows the location.
+- **Requirement:** A successful job shows the output name and its location. **Phase 1:** the location is the app cache path, shown as text, with no Open or Share action yet (a cache file has no shareable content URI). **Phase 2** adds the folder, then "Open" (hands the file to another app via the system viewer) and "Share". If no app can open the file, the app says so and still shows the location.
 - **Priority/status:** P0 (success state and Open), P1 (Share), planned.
 - **Acceptance criteria:** Given a completed job, when the user taps Open, then an external player receives the file; if none is installed, then a message names the folder instead of failing silently. Given the folder is shown, when the user reads it, then it matches the folder chosen in PR-05.
-- **Related journey/dependency:** TR-06; Phase 1 (success state), Phase 3 (open from notification).
+- **Related journey/dependency:** TR-06; Phase 1 (success state and path), Phase 2 (folder, Open, Share), Phase 3 (open from notification).
 
 ### PR-10 Background continuation
 
