@@ -1,0 +1,113 @@
+# Transmute — version control exclusions
+# Keep the repository free of build output, secrets, generated media, and machine-specific paths.
+
+# --- Node / package manager -------------------------------------------------
+node_modules/
+.npm/
+.npmrc.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.eslintcache
+*.tsbuildinfo
+
+# Lockfiles are intentionally committed; do not ignore package-lock.json.
+
+# --- React Native / Metro ---------------------------------------------------
+.metro-health-check*
+.metro/
+*.jsbundle
+/expo/            # present only if Expo tooling is ever introduced
+.history/
+
+# --- Android build output ---------------------------------------------------
+android/.gradle/
+android/build/
+android/app/build/
+android/.cxx/
+android/build.gradle.local
+android/local.properties
+android/captures/
+android/.externalNativeBuild/
+android/app/release/
+android/.kotlin/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+*.hprof
+*.aar
+
+# Gradle wrapper is committed on purpose (gradle/wrapper/** must stay in Git).
+
+# --- Signing material: never commit ------------------------------------------
+*.keystore
+*.jks
+*.p12
+*.pem
+!android/app/debug.keystore
+secrets.properties
+key.properties
+
+# --- Environment and local configuration ------------------------------------
+.env
+.env.*
+!.env.example
+
+# --- iOS (only if an ios/ folder is ever scaffolded) ------------------------
+ios/Pods/
+ios/build/
+ios/.xcode.env.local
+*.xcuserdatad/
+!ios/*.xcodeproj/project.pbxproj
+
+# --- Tests and coverage -----------------------------------------------------
+coverage/
+.vitest/
+vitest-report/
+test-results/
+junit.xml
+
+# --- Maestro / Detox artifacts ----------------------------------------------
+/maestro-artifacts/
+/e2e/screenshots/
+/e2e/videos/
+.detox/
+artifacts/
+
+# --- Generated media fixtures ----------------------------------------------
+# Fixtures are generated locally (see trd.md "Test strategy"), not committed.
+/fixtures/
+/test-media/
+/media-samples/
+# Guard against accidentally committing large binaries. Add an intentional
+# asset later with `git add -f <path>` if one is ever required.
+*.mp4
+*.mkv
+*.m4v
+*.mov
+*.webm
+*.avi
+*.flv
+*.mpg
+*.mpeg
+*.3gp
+*.mp3
+*.aac
+*.wav
+*.flac
+*.ogg
+*.opus
+
+# --- Editor and OS ----------------------------------------------------------
+.vscode/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.orig
+*.rej
