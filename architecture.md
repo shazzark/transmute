@@ -39,13 +39,26 @@ Not owned by Transmute: decoding capabilities of third-party players, the correc
 | **Application layer** (`src/application`) | Orchestrates a job: preflight, copy-in, convert, copy-out, cleanup; owns the job state machine and the session queue | Calls domain functions and port interfaces | Every path must reach a terminal state and run cleanup exactly once |
 | **Domain layer** (`src/domain`, pure TypeScript) | Preset catalogue, FFmpeg argv builder, statistics parser, probe parser, output-name resolver, path policy, free-space estimator, error mapper, queue reducer | Pure functions and reducers only | Deterministic; no I/O, no RN imports; fully unit-tested |
 | **Ports** (`src/ports`) | Interfaces the application depends on: `MediaEngine`, `SourceFiles`, `DestinationFiles`, `Clock`, `Logger`, `Notifier`, `SpaceInfo` | Implemented by adapters; faked in tests | Keeping them narrow is what makes adapter tests cheap |
-| **Engine adapter** (`src/services/mediaEngine`) | Wraps `munim-ffmpeg`: execute with argv, stream statistics, cancel by session ID, probe, and resolve encoder names once at startup with `pickEncoder` (TD-8) | Events from native → application; argv and resolved encoder names from the application layer | A crash or hang must surface as a failed job, never a frozen UI; a device without a required encoder fails at preflight, not mid-conversion |
+| **Engine adapter** (`src/native/ffmpeg`) | Wraps `munim-ffmpeg`: execute with argv, stream statistics (throttled to two per second), cancel by session ID, probe via `getMediaInformation`, and resolve encoder names with the preference rules in `src/domain/encoders.ts` | Events from native → application; argv and resolved encoder names from the application layer | A crash or hang must surface as a failed job, never a frozen UI; a device without a required encoder fails at preflight, not mid-conversion |
 | **Source intake** (`expo-document-picker` behind a TS adapter) | Opens the system document UI, lets the platform copy the chosen file into app cache, and returns the cached path, display name, size, and MIME type. It copies nothing itself | Called by the application layer at job start | The platform copy gives no progress and cannot be cancelled; a provider that refuses the copy surfaces as a pick error; a very large file costs a second copy of its size on disk (TR-05) |
 | **Destination writer** (deferred to Phase 2) | Streams a finished cache file into a user-granted destination URI in bounded chunks, with cancellation | Not wired in Phase 1 | Phase 1 shows the cache path instead. First candidate is `expo-file-system`'s StorageAccessFramework API; a custom Kotlin module returns only if a >1 GB test proves it necessary (O-3) |
 | **Foreground service** (native Kotlin) | Keeps the process alive during a job, publishes a progress notification with Cancel, receives cancel from the notification | Started/stopped with job lifecycle | Android 14+ requires a declared service type; long jobs have daily limits that must be documented, not ignored |
 | **Job store** (`src/application/jobStore`) | Session job list plus an "in progress" marker for crash recovery | Read at launch | MVP: in memory plus a marker; no database |
 
-## Key flows
+## What exists today (Phase 1)
+
+Everything below is code, not intent. Layers match the table above; the domain and application layers import no React Native modules, which is what lets all 118 unit tests run in Node.
+
+| Path | Contents |
+|---|---|
+| `src/domain` | `presets.ts` (catalogue), `ffmpegCommand.ts` (argv builder), `encoders.ts` (hardware → software preference, NV12 rule, 176×144 minimum), `progress.ts` (statistics → monotonic percent), `probe.ts` (FFprobe report → summary), `naming.ts` (sanitiser, forced extension, ` (2)` collisions), `errors.ts` (stable codes → message + recovery + details), `colour.ts` (WCAG contrast maths) |
+| `src/application` | `convertJob.ts` (job state machine), `runConversion.ts` (`prepareSource` probe stage, then the converting stage with exactly-once cleanup) |
+| `src/native` | `ffmpeg.ts` (the only `munim-ffmpeg` import; session id, statistic throttle, cancel), `jobFiles.ts` (`expo-file-system` job directory, existence, listing), `documentPicker.ts` (source intake) |
+| `src/ui` | `tokens.ts`, `format.ts`, `screens/ConversionScreen.tsx`, and seven components with explicit states |
+
+**Phase 1 deviation to remember:** the job directory is kept on success, because the cache file is the only copy of the result until Phase 2 writes it to a destination. The directory is removed on cancel and failure. `TR-08`'s "removed on success" therefore applies from Phase 2 onwards, when the output leaves the cache first.
+
+
 
 **1 — Select and validate.** `Pick file → system document UI copies into cache → adapter returns cached path, display name, size → engine probe → duration and streams → UI shows summary or a specific refusal`. Probing is the first real failure point, so it happens before any copying.
 

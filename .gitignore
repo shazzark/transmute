@@ -111,6 +111,15 @@ artifacts/
 *.ogg
 *.opus
 
+# --- Local run logs ----------------------------------------------------------
+# Build and install transcripts belong in a phase report, not in the repository.
+/*.log
+
+# --- Device verification dumps ----------------------------------------------
+# `adb shell uiautomator dump` output and PID files written by local runs.
+/ui*.xml
+/*.pid
+
 # --- Editor and OS ----------------------------------------------------------
 .vscode/
 .idea/
