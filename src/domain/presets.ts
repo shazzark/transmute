@@ -4,19 +4,23 @@
  * Pure data plus pure lookups: no React Native imports, so the argv builder and
  * every test that exercises it run in plain Node (TR-21).
  *
- * Phase 1 ships one usable preset (MP4 / H.264 / AAC). The audio presets are
- * defined here because their command mapping is already decided (O-6) and
- * tested, but the UI keeps them disabled until Phase 5.
+ * Phase 1 ships one usable preset (MP4 / H.264 / AAC). The other five are
+ * defined here so the "Output format" selector can show the full matrix — the
+ * audio presets because their command mapping is already decided (O-6) and
+ * tested, MKV and WEBM because the selector must not change shape when Phase 5
+ * switches them on. Every one of them stays disabled until then.
  */
 
-export type PresetId = 'mp4' | 'mp3' | 'flac' | 'opus';
+export type PresetId = 'mp4' | 'mkv' | 'webm' | 'mp3' | 'flac' | 'opus';
 
 export type PresetKind = 'video' | 'audio';
 
 export interface Preset {
   readonly id: PresetId;
-  /** Short label for the selector. */
+  /** Short label for the selector, e.g. `MP4`. */
   readonly label: string;
+  /** Plain-word summary of the output, e.g. `H.264 video + AAC audio` (PR-03). */
+  readonly detail: string;
   readonly kind: PresetKind;
   /** Container/format name shown in the summary. */
   readonly container: string;
@@ -36,7 +40,8 @@ export interface Preset {
 
 const MP4: Preset = {
   id: 'mp4',
-  label: 'MP4 (H.264)',
+  label: 'MP4',
+  detail: 'H.264 video + AAC audio',
   kind: 'video',
   container: 'MP4',
   extension: '.mp4',
@@ -49,9 +54,51 @@ const MP4: Preset = {
   unavailableReason: '',
 };
 
+/**
+ * Matroska carries the same H.264/AAC pair as MP4, so its command is the MP4
+ * one minus `-movflags`. It is defined but disabled until the Phase 5 matrix is
+ * verified on a device.
+ */
+const MKV: Preset = {
+  id: 'mkv',
+  label: 'MKV',
+  detail: 'Matroska · H.264 + AAC',
+  kind: 'video',
+  container: 'MKV',
+  extension: '.mkv',
+  videoEncoderCandidates: ['h264_mediacodec', 'libopenh264', 'h264_videotoolbox'],
+  audioCodec: 'aac',
+  audioBitrate: '128k',
+  videoBitrate: '2M',
+  available: false,
+  unavailableReason: 'Coming next',
+};
+
+/**
+ * WebM standardly takes VP9 + Opus. The candidates are provisional: Phase 5
+ * must confirm the bundled build exposes them before this preset is switched
+ * on, and a missing encoder surfaces as a named failure, never a silent
+ * fallback to a different container (TD-8).
+ */
+const WEBM: Preset = {
+  id: 'webm',
+  label: 'WEBM',
+  detail: 'VP9 video + Opus audio',
+  kind: 'video',
+  container: 'WEBM',
+  extension: '.webm',
+  videoEncoderCandidates: ['libvpx-vp9', 'libvpx'],
+  audioCodec: 'libopus',
+  audioBitrate: '128k',
+  videoBitrate: '2M',
+  available: false,
+  unavailableReason: 'Coming next',
+};
+
 const MP3: Preset = {
   id: 'mp3',
   label: 'MP3',
+  detail: 'MP3 audio only',
   kind: 'audio',
   container: 'MP3',
   extension: '.mp3',
@@ -60,12 +107,13 @@ const MP3: Preset = {
   audioBitrate: '192k',
   videoBitrate: null,
   available: false,
-  unavailableReason: 'coming next',
+  unavailableReason: 'Coming next',
 };
 
 const FLAC: Preset = {
   id: 'flac',
   label: 'FLAC',
+  detail: 'FLAC audio, lossless',
   kind: 'audio',
   container: 'FLAC',
   extension: '.flac',
@@ -74,12 +122,13 @@ const FLAC: Preset = {
   audioBitrate: null,
   videoBitrate: null,
   available: false,
-  unavailableReason: 'coming next',
+  unavailableReason: 'Coming next',
 };
 
 const OPUS: Preset = {
   id: 'opus',
-  label: 'Opus',
+  label: 'OPUS',
+  detail: 'Opus audio only',
   kind: 'audio',
   container: 'Opus',
   extension: '.opus',
@@ -88,11 +137,11 @@ const OPUS: Preset = {
   audioBitrate: '128k',
   videoBitrate: null,
   available: false,
-  unavailableReason: 'coming next',
+  unavailableReason: 'Coming next',
 };
 
-/** Display order in the selector. */
-export const PRESETS: readonly Preset[] = [MP4, MP3, FLAC, OPUS];
+/** Display order in the selector: video formats first, then audio-only. */
+export const PRESETS: readonly Preset[] = [MP4, MKV, WEBM, MP3, FLAC, OPUS];
 
 /** The only preset Phase 1 can run. */
 export const DEFAULT_PRESET_ID: PresetId = 'mp4';

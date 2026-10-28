@@ -145,8 +145,9 @@ White text on `accent` would be ≈3.2:1 and fails for normal text; it must not 
 |---|---|---|
 | `PrimaryButton` | The one commitment action per screen ("Convert", "Choose file") | default, pressed, disabled (+ reason), loading (spinner replaces label, width preserved), focus |
 | `SecondaryButton` | Open, Share, Change folder, Cancel | default, pressed, disabled, loading |
-| `FileSummaryCard` | Source name, size, duration, container/codec | empty (nothing chosen), probing (skeleton), ready, unsupported (danger border + reason) |
-| `PresetSelector` | Output format choice | selected, unselected, disabled (+ reason), single-option |
+| `VideoPreviewCard` | The 16:9 preview frame plus source name, size, duration, resolution and container/codec | empty (nothing chosen), probing (spinner + "Reading the video…"), ready, unsupported (danger border + reason) |
+| `ConversionSummary` | Source → converted file, so the screen says what will be written before the job starts | summary pending (file still being probed), ready |
+| `PresetSelector` | Output format choice, three-up tile grid with a plain-word codec line per tile | selected (+ check mark, not colour alone), unselected, disabled (+ "Coming next") |
 | `ProgressPanel` | Phase label, bar, percentage, elapsed, ETA | indeterminate (unknown duration), determinate, stalled (no update for a while, still "working"), complete |
 | `ProgressBar` | Visual progress | determinate, indeterminate, error (danger fill), success (success fill) |
 | `JobRow` | One queued or finished job | queued (+ position), preparing, converting, saving, cancelling, done, failed (with cause), cancelled, interrupted |
@@ -160,7 +161,7 @@ Every state above needs a place in the code (`variant`/`status` prop), not an ad
 
 ### Layout and screen composition
 
-- **Conversion screen (primary):** `FileSummaryCard` (picked file name and size, or the empty state) → `FormatSelector` (MP4 enabled; MKV, WEBM, MP3, FLAC and OPUS visible but disabled and labelled "coming next") → `ProgressPanel` (only when a job exists; the FFmpeg statistics percentage, and the output path on success) → sticky bottom `PrimaryButton` ("Convert", disabled while a job runs). Phase 1 has no destination line: the output stays in the cache directory and its path is shown on success. Single column, 16 dp side padding, content max width 560 dp on large screens, safe-area insets respected so the sticky action never sits under the navigation bar.
+- **Conversion screen (primary):** header (app name + one line of what happens) → **Source video**: `PrimaryButton` "Select Video" (a secondary button once a file is chosen, so it reads as "replace") with `VideoPreviewCard` beneath it (16:9 frame, then name, size, duration, resolution, container and codecs; empty, probing and unsupported states) → **Output format**: `PresetSelector` (MP4 enabled; MKV, WEBM, MP3, FLAC and OPUS visible but disabled and labelled "Coming next", so the grid keeps its shape as formats arrive) → `ConversionSummary` (this file becomes that file, using the same output name the pipeline writes) → `ProgressPanel` (only while a job runs, or complete on success, with the output path) → sticky bottom `PrimaryButton` ("Convert to MP4", disabled while a job runs or the file cannot be converted, hidden until a file is chosen). Phase 1 has no destination line: the output stays in the cache directory and its path is shown on success. Single column, 16 dp side padding, content max width 560 dp on large screens, safe-area insets respected so the sticky action never sits under the navigation bar.
 - **Job list screen:** `JobRow`s, one line of metadata plus state, overflow menu per row; empty state when nothing has run.
 - **Notice screen (Phase 7):** licence and component list, plain text, scrollable, no interactive surprises.
 - **Confirmation sheet:** title, one-sentence consequence, destructive action right-aligned, cancel left.

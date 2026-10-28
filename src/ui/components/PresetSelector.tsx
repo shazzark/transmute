@@ -10,16 +10,20 @@ export interface PresetSelectorProps {
   disabled?: boolean;
 }
 
-/** A row of chips. Unavailable presets stay visible and say why. */
+/**
+ * The output-format grid: every preset stays visible so the matrix never
+ * changes shape. A preset that cannot run yet is disabled and says so in words;
+ * selection is also shown with a check mark, never by colour alone (TR-20).
+ */
 export function PresetSelector({
   selectedId,
   onSelect,
   disabled = false,
 }: PresetSelectorProps): React.JSX.Element {
   return (
-    <View style={styles.row} accessibilityRole="radiogroup">
+    <View style={styles.grid} accessibilityRole="radiogroup">
       {PRESETS.map((preset) => (
-        <PresetChip
+        <PresetTile
           key={preset.id}
           preset={preset}
           selected={preset.id === selectedId}
@@ -31,41 +35,58 @@ export function PresetSelector({
   );
 }
 
-interface PresetChipProps {
+interface PresetTileProps {
   preset: Preset;
   selected: boolean;
   disabled: boolean;
   onSelect: (id: PresetId) => void;
 }
 
-function PresetChip({ preset, selected, disabled, onSelect }: PresetChipProps): React.JSX.Element {
-  const label = preset.available ? preset.label : `${preset.label} — ${preset.unavailableReason}`;
+function PresetTile({ preset, selected, disabled, onSelect }: PresetTileProps): React.JSX.Element {
+  const accessibilityLabel = preset.available
+    ? `${preset.label}, ${preset.detail}`
+    : `${preset.label}, ${preset.detail}. ${preset.unavailableReason}`;
 
   return (
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ selected, disabled }}
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel}
       disabled={disabled}
       onPress={() => onSelect(preset.id)}
       style={({ pressed }) => [
-        styles.chip,
-        selected ? styles.chipSelected : null,
-        pressed && !disabled ? styles.chipPressed : null,
+        styles.tile,
+        selected ? styles.tileSelected : null,
+        pressed && !disabled ? styles.tilePressed : null,
       ]}
     >
-      <Text
-        style={[
-          styles.chipLabel,
-          selected ? styles.chipLabelSelected : null,
-          disabled ? styles.chipLabelDisabled : null,
-        ]}
-        allowFontScaling
-      >
-        {preset.label}
+      <View style={styles.tileHeader}>
+        <Text
+          style={[
+            styles.tileLabel,
+            selected ? styles.tileLabelSelected : null,
+            disabled ? styles.tileLabelDisabled : null,
+          ]}
+          allowFontScaling
+        >
+          {preset.label}
+        </Text>
+        {selected ? (
+          <Text
+            style={styles.check}
+            allowFontScaling
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
+            ✓
+          </Text>
+        ) : null}
+      </View>
+      <Text style={styles.tileDetail} allowFontScaling>
+        {preset.detail}
       </Text>
       {!preset.available ? (
-        <Text style={styles.chipNote} allowFontScaling>
+        <Text style={styles.tileNote} allowFontScaling>
           {preset.unavailableReason}
         </Text>
       ) : null}
@@ -74,44 +95,64 @@ function PresetChip({ preset, selected, disabled, onSelect }: PresetChipProps): 
 }
 
 const styles = StyleSheet.create({
-  row: {
+  grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  chip: {
+  tile: {
+    flexBasis: '30%',
+    flexGrow: 1,
+    minWidth: 96,
     minHeight: touchTarget,
-    minWidth: touchTarget,
     justifyContent: 'center',
-    borderRadius: radius.pill,
+    gap: spacing.xs,
+    borderRadius: radius.control,
     borderWidth: 1,
     borderColor: color.border,
     backgroundColor: color.surface,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
   },
-  chipSelected: {
+  tileSelected: {
     borderColor: color.accent,
     backgroundColor: color.surfaceRaised,
   },
-  chipPressed: {
+  tilePressed: {
     backgroundColor: color.surfaceRaised,
   },
-  chipLabel: {
-    fontSize: type.label.fontSize,
-    lineHeight: type.label.lineHeight,
-    fontWeight: weight.label,
+  tileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.xs,
+  },
+  tileLabel: {
+    flexShrink: 1,
+    fontSize: type.bodyLarge.fontSize,
+    lineHeight: type.bodyLarge.lineHeight,
+    fontWeight: weight.title,
     color: color.textPrimary,
   },
-  chipLabelSelected: {
+  tileLabelSelected: {
     color: color.accent,
   },
-  chipLabelDisabled: {
+  tileLabelDisabled: {
     color: color.textSecondary,
   },
-  chipNote: {
+  check: {
+    fontSize: type.body.fontSize,
+    lineHeight: type.body.lineHeight,
+    color: color.accent,
+  },
+  tileDetail: {
     fontSize: type.caption.fontSize,
     lineHeight: type.caption.lineHeight,
     color: color.textSecondary,
+  },
+  tileNote: {
+    fontSize: type.caption.fontSize,
+    lineHeight: type.caption.lineHeight,
+    color: color.warning,
   },
 });

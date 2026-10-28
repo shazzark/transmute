@@ -1,0 +1,40 @@
+# Dependencies - Never analyze these
+
+node_modules/
+\*\*/node_modules/
+
+# Build outputs - Generated, not source
+
+/android/
+/ios/
+/build/
+/dist/
+/.expo/
+/expo-env.d.ts
+_.apk
+_.aab
+
+# Large binary/media files
+
+_.mp4
+_.mkv
+_.webm
+_.mp3
+_.flac
+_.wav
+\*.zip
+
+# Test artifacts and coverage
+
+coverage/
+.nyc_output/
+/test-results/
+/playwright-report/
+
+# Local environment and IDE files
+
+.env
+.env.\*
+\*.local
+.idea/
+.vscode/

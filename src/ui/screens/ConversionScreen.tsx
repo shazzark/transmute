@@ -9,18 +9,22 @@ import { cancelActiveConversion, enginePorts } from '../../native/ffmpeg';
 import { pickSourceFile } from '../../native/documentPicker';
 import { Banner } from '../components/Banner';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { FileSummaryCard } from '../components/FileSummaryCard';
+import { ConversionSummary } from '../components/ConversionSummary';
 import { PresetSelector } from '../components/PresetSelector';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { ProgressPanel } from '../components/ProgressPanel';
 import { SecondaryButton } from '../components/SecondaryButton';
+import { VideoPreviewCard, type PreviewState } from '../components/VideoPreviewCard';
 import { color, layout, spacing, type } from '../tokens';
 
 /**
- * The Phase 1 screen: one file, one preset, one conversion, real progress.
+ * The Phase 1 screen: one source video, one output format, one conversion.
  *
- * State lives in the job reducer; this component only translates taps into
- * actions and engine calls into actions.
+ * The layout is the familiar converter shape — Select Video, file preview,
+ * output format, Convert — and the source → output card states, before the job
+ * starts, exactly which file will be written. State lives in the job reducer;
+ * this component only translates taps into actions and engine calls into
+ * actions.
  */
 export function ConversionScreen(): React.JSX.Element {
   const [state, dispatch] = useReducer(jobReducer, initialJobState);
@@ -30,6 +34,7 @@ export function ConversionScreen(): React.JSX.Element {
 
   const busy = isBusy(state.status);
   const preset = getPreset(state.presetId);
+  const converting = state.status === 'converting' || state.status === 'cancelling';
 
   // Announce phase changes once, not on every statistics tick (TR-20).
   useEffect(() => {
@@ -103,7 +108,7 @@ export function ConversionScreen(): React.JSX.Element {
     cancelActiveConversion();
   }, []);
 
-  const summaryState =
+  const summaryState: PreviewState =
     state.status === 'probing'
       ? 'probing'
       : state.source === null
@@ -112,27 +117,56 @@ export function ConversionScreen(): React.JSX.Element {
           ? 'unsupported'
           : 'ready';
 
+  const convertDisabledReason =
+    state.status === 'probing'
+      ? 'Reading the video. This takes a moment.'
+      : state.failure && state.summary === null
+        ? 'This file cannot be converted.'
+        : undefined;
+
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content} style={styles.scroll}>
         <View style={styles.inner}>
-          <Text style={styles.title} allowFontScaling accessibilityRole="header">
-            Transmute
-          </Text>
-          <Text style={styles.subtitle} allowFontScaling>
-            Convert on this device. Nothing is uploaded.
-          </Text>
-
-          <FileSummaryCard
-            state={summaryState}
-            name={state.source?.name ?? null}
-            sizeBytes={state.source?.sizeBytes ?? null}
-            summary={state.summary}
-            reason={state.failure?.message ?? null}
-          />
+          <View style={styles.header}>
+            <Text style={styles.title} allowFontScaling accessibilityRole="header">
+              Transmute
+            </Text>
+            <Text style={styles.subtitle} allowFontScaling>
+              Convert a video into another format on this device. Nothing is uploaded.
+            </Text>
+          </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionLabel} allowFontScaling>
+            <Text style={styles.sectionLabel} allowFontScaling accessibilityRole="header">
+              Source video
+            </Text>
+            {state.source === null ? (
+              <PrimaryButton
+                label="Select Video"
+                onPress={handleChoose}
+                disabled={busy}
+                accessibilityLabel="Select a video to convert"
+              />
+            ) : (
+              <SecondaryButton
+                label="Select Video"
+                onPress={handleChoose}
+                disabled={busy}
+                accessibilityLabel={`Select a different video to replace ${state.source.name}`}
+              />
+            )}
+            <VideoPreviewCard
+              state={summaryState}
+              name={state.source?.name ?? null}
+              sizeBytes={state.source?.sizeBytes ?? null}
+              summary={state.summary}
+              reason={state.failure?.message ?? null}
+            />
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel} allowFontScaling accessibilityRole="header">
               Output format
             </Text>
             <PresetSelector
@@ -140,12 +174,25 @@ export function ConversionScreen(): React.JSX.Element {
               onSelect={handleSelectPreset}
               disabled={busy}
             />
+            {state.source === null ? (
+              <Text style={styles.caption} allowFontScaling>
+                Select a video above, then tap Convert to write a new file in this format.
+              </Text>
+            ) : null}
             {state.encoderName ? (
               <Text style={styles.caption} allowFontScaling>
                 Encoder: {state.encoderName}
               </Text>
             ) : null}
           </View>
+
+          {state.source && state.summary ? (
+            <ConversionSummary
+              sourceName={state.source.name}
+              summary={state.summary}
+              preset={preset}
+            />
+          ) : null}
 
           {state.status === 'converting' || state.status === 'cancelling' ? (
             <ProgressPanel
@@ -200,38 +247,27 @@ export function ConversionScreen(): React.JSX.Element {
         </View>
       </ScrollView>
 
-      <View style={styles.actionBar}>
-        {state.status === 'converting' || state.status === 'cancelling' ? (
-          <SecondaryButton
-            label={state.status === 'cancelling' ? 'Cancelling…' : 'Cancel conversion'}
-            onPress={() => setConfirmVisible(true)}
-            disabled={state.status === 'cancelling'}
-            destructive
-          />
-        ) : (
-          <>
-            <PrimaryButton
-              label={state.source ? 'Choose another file' : 'Choose file'}
-              onPress={handleChoose}
-              disabled={busy}
-              accessibilityLabel="Choose a video file"
+      {/* Without a source there is nothing to convert, so Convert stays hidden. */}
+      {state.source !== null ? (
+        <View style={styles.actionBar}>
+          {converting ? (
+            <SecondaryButton
+              label={state.status === 'cancelling' ? 'Cancelling…' : 'Cancel conversion'}
+              onPress={() => setConfirmVisible(true)}
+              disabled={state.status === 'cancelling'}
+              destructive
             />
+          ) : (
             <PrimaryButton
-              label="Convert"
+              label={`Convert to ${preset.label}`}
               onPress={handleConvert}
               disabled={!canConvert(state) || busy}
-              disabledReason={
-                state.source === null
-                  ? 'Choose a file first.'
-                  : state.summary === null
-                    ? 'This file cannot be converted.'
-                    : undefined
-              }
-              accessibilityLabel={`Convert ${state.source?.name ?? 'the chosen file'} to ${preset.label}`}
+              disabledReason={convertDisabledReason}
+              accessibilityLabel={`Convert ${state.source.name} to ${preset.label}`}
             />
-          </>
-        )}
-      </View>
+          )}
+        </View>
+      ) : null}
 
       <ConfirmDialog
         visible={confirmVisible}
@@ -246,7 +282,6 @@ export function ConversionScreen(): React.JSX.Element {
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   screen: {
@@ -266,13 +301,15 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     gap: layout.sectionGap,
   },
+  header: {
+    gap: spacing.sm,
+  },
   title: {
     fontSize: type.display.fontSize,
     lineHeight: type.display.lineHeight,
     color: color.textPrimary,
   },
   subtitle: {
-    marginTop: -spacing.md,
     fontSize: type.body.fontSize,
     lineHeight: type.body.lineHeight,
     color: color.textSecondary,

@@ -7,7 +7,7 @@ import { color, radius, spacing, type, weight } from '../tokens';
 export type ProgressVariant = 'determinate' | 'indeterminate' | 'complete' | 'error';
 
 export interface ProgressPanelProps {
-  /** Phase sentence, e.g. "Converting to MP4 (H.264)". */
+  /** Phase sentence, e.g. "Converting to MP4". */
   phaseLabel: string;
   /** Whole percent, or null when the duration is unknown. */
   percent: number | null;
