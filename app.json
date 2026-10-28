@@ -30,6 +30,7 @@
     },
     "plugins": [
       "munim-ffmpeg",
+      "./plugins/withReleaseNoInternet",
       [
         "expo-media-library",
         {
