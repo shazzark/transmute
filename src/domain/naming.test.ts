@@ -6,6 +6,7 @@ import {
   resolveCollision,
   sanitizeBaseName,
   stripExtension,
+  toFileUri,
   utf8ByteLength,
 } from './naming';
 
@@ -95,5 +96,30 @@ describe('path helpers', () => {
     expect(stripExtension('a.b.mp4')).toBe('a.b');
     expect(stripExtension('.hidden')).toBe('.hidden');
     expect(stripExtension('noext')).toBe('noext');
+  });
+});
+
+describe('toFileUri', () => {
+  it('marks a plain path as a file URI', () => {
+    expect(toFileUri('/data/user/0/dev.transmute/cache/job-1/a.mp4')).toBe(
+      'file:///data/user/0/dev.transmute/cache/job-1/a.mp4',
+    );
+  });
+
+  it('encodes spaces, so Android still reads the extension from the name', () => {
+    expect(toFileUri('/cache/job-1/Trip 2026.mp4')).toBe('file:///cache/job-1/Trip%202026.mp4');
+  });
+
+  it('encodes characters that would truncate the path', () => {
+    expect(toFileUri('/cache/job-1/a#b?.mp4')).toBe('file:///cache/job-1/a%23b%3F.mp4');
+    expect(toFileUri('/cache/job-1/100% done.mp4')).toBe(
+      'file:///cache/job-1/100%25%20done.mp4',
+    );
+  });
+
+  it('accepts a path that already carries the scheme, without doubling it', () => {
+    expect(toFileUri('file:///cache/job-1/Trip 2026.mp4')).toBe(
+      'file:///cache/job-1/Trip%202026.mp4',
+    );
   });
 });

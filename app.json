@@ -28,6 +28,17 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["munim-ffmpeg"]
+    "plugins": [
+      "munim-ffmpeg",
+      [
+        "expo-media-library",
+        {
+          "savePhotosPermission": "Transmute adds the files you convert to your photo library so you can share them.",
+          "photosPermission": "Transmute uses your photo library only to save the files you convert.",
+          "isAccessMediaLocationEnabled": false,
+          "granularPermissions": []
+        }
+      ]
+    ]
   }
 }

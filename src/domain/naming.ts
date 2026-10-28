@@ -124,3 +124,20 @@ export function resolveCollision(outputName: string, existing: readonly string[]
   // A thousand copies of the same name: fall back to a timestamp instead of looping.
   return `${base} ${Date.now()}${extension}`;
 }
+
+/**
+ * A plain filesystem path as a `file://` URI, with the name percent-encoded.
+ *
+ * Android picks the MediaStore collection from the file's extension, but its
+ * `MimeTypeMap.getFileExtensionFromUrl` rejects a name containing anything
+ * outside `[a-zA-Z0-9._-()%]` — a single space is enough for a video to be filed
+ * as a generic document instead of as media. Encoding the name keeps the
+ * extension visible to that lookup and keeps `#` or `?` from truncating the path.
+ */
+export function toFileUri(path: string): string {
+  const plain = path.startsWith('file://') ? path.slice('file://'.length) : path;
+  const slash = plain.lastIndexOf('/');
+  const directory = slash >= 0 ? plain.slice(0, slash) : '';
+  const name = slash >= 0 ? plain.slice(slash + 1) : plain;
+  return `file://${directory}/${encodeURIComponent(name)}`;
+}

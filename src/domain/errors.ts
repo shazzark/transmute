@@ -15,6 +15,7 @@ export type FailureCode =
   | 'source-too-small'
   | 'engine-failed'
   | 'conversion-cancelled'
+  | 'save-failed'
   | 'output-missing';
 
 export interface Failure {
@@ -185,4 +186,68 @@ export function describeSourceTooSmall(width: number, height: number): Failure {
     message: `The video is ${width}×${height}, and the device encoder needs at least 176×144.`,
     recovery: 'Choose a larger video.',
   };
+}
+
+/** Where a finished conversion is being copied to. */
+export type SaveDestination = 'photos' | 'folder';
+
+/**
+ * Android files audio under the Music library and video under Photos; both are
+ * the same MediaStore destination, so the messages say "media library" and let
+ * the success line name the exact place.
+ */
+const DESTINATION_LABEL: Record<SaveDestination, string> = {
+  photos: 'the media library',
+  folder: 'the folder you chose',
+};
+
+/**
+ * A finished conversion is already safe in the app cache, so a refused copy is
+ * an annoyance rather than a lost file — and every message here says so, because
+ * that is the reassurance the user needs (TR-30).
+ */
+export function describeSaveFailure(error: unknown, destination: SaveDestination): Failure {
+  const message = error instanceof Error && error.message ? error.message : String(error ?? '');
+  const text = message.toLowerCase();
+  const detail = message ? { detail: message } : {};
+
+  if (text.includes('no space') || text.includes('enospc') || text.includes('disk full')) {
+    return {
+      code: 'save-failed',
+      title: 'Not enough space',
+      message: `The device ran out of storage while copying the file to ${DESTINATION_LABEL[destination]}.`,
+      recovery: 'Free up space, then save again. The converted file is still in the app cache.',
+      ...detail,
+    };
+  }
+
+  if (text.includes('permission') || text.includes('denied')) {
+    return {
+      code: 'save-failed',
+      title: 'Access refused',
+      message: `Android did not allow the app to write to ${DESTINATION_LABEL[destination]}.`,
+      recovery:
+        destination === 'photos'
+          ? 'Allow media access for this app in Settings, or save a copy to a folder instead.'
+          : 'Choose a folder the app may write to, such as Downloads or Documents.',
+      ...detail,
+    };
+  }
+
+  return destination === 'photos'
+    ? {
+        code: 'save-failed',
+        title: 'Could not add to the library',
+        message: 'The device media library did not accept the converted file.',
+        recovery:
+          'The file is still in the app cache. Save a copy to a folder to keep it somewhere else.',
+        ...detail,
+      }
+    : {
+        code: 'save-failed',
+        title: 'Could not save to that folder',
+        message: 'Android refused to copy the file into the folder you chose.',
+        recovery: 'Choose another folder and try again. The file is still in the app cache.',
+        ...detail,
+      };
 }

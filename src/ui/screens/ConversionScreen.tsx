@@ -1,18 +1,23 @@
 import React, { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { AccessibilityInfo, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { canConvert, initialJobState, isBusy, jobReducer } from '../../application/convertJob';
+import { canConvert, initialJobState, isBusy, jobReducer, type OutputFile } from '../../application/convertJob';
 import { prepareSource, runConversion, type CancelSignal } from '../../application/runConversion';
+import { saveOutput } from '../../application/saveOutput';
 import { describePickFailure } from '../../domain/errors';
+import { baseNameOf } from '../../domain/naming';
 import { getPreset, type PresetId } from '../../domain/presets';
+import { initialSaveState, savedLocation, saveReducer, targetLabel, type SaveTarget } from '../../domain/saveIntent';
 import { cancelActiveConversion, enginePorts } from '../../native/ffmpeg';
 import { pickSourceFile } from '../../native/documentPicker';
+import { savePorts } from '../../native/saveDestination';
 import { Banner } from '../components/Banner';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ConversionSummary } from '../components/ConversionSummary';
 import { PresetSelector } from '../components/PresetSelector';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { ProgressPanel } from '../components/ProgressPanel';
+import { SavePanel } from '../components/SavePanel';
 import { SecondaryButton } from '../components/SecondaryButton';
 import { VideoPreviewCard, type PreviewState } from '../components/VideoPreviewCard';
 import { color, layout, spacing, type } from '../tokens';
@@ -28,6 +33,7 @@ import { color, layout, spacing, type } from '../tokens';
  */
 export function ConversionScreen(): React.JSX.Element {
   const [state, dispatch] = useReducer(jobReducer, initialJobState);
+  const [saveState, saveDispatch] = useReducer(saveReducer, initialSaveState);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const cancelSignal = useRef<CancelSignal>({ cancelled: false });
   const working = useRef(false);
@@ -47,6 +53,39 @@ export function ConversionScreen(): React.JSX.Element {
     }
   }, [state.status, state.failure]);
 
+  // A copy out of the cache is a second event: it can succeed or fail on its own.
+  useEffect(() => {
+    if (saveState.status === 'saved') {
+      AccessibilityInfo.announceForAccessibility(
+        `Saved to ${savedLocation(saveState, saveState.target) ?? targetLabel(saveState.target)}`,
+      );
+    } else if (saveState.status === 'failed' && saveState.failure) {
+      AccessibilityInfo.announceForAccessibility(saveState.failure.message);
+    }
+  }, [saveState]);
+
+  /** Copies one finished output to one destination; never touches the job state. */
+  const attemptSave = useCallback(async (target: SaveTarget, output: OutputFile) => {
+    await saveOutput({
+      request: { target, path: output.path, name: output.name },
+      ports: savePorts,
+      dispatch: saveDispatch,
+    });
+  }, []);
+
+  const handleSave = useCallback(
+    (target: SaveTarget) => {
+      if (state.output === null) {
+        return;
+      }
+      attemptSave(target, state.output);
+    },
+    [attemptSave, state.output],
+  );
+
+  const handleSavePhotos = useCallback(() => handleSave('photos'), [handleSave]);
+  const handleSaveFolder = useCallback(() => handleSave('folder'), [handleSave]);
+
   const handleChoose = useCallback(async () => {
     if (working.current) {
       return;
@@ -65,6 +104,8 @@ export function ConversionScreen(): React.JSX.Element {
       }
 
       cancelSignal.current = { cancelled: false };
+      // A new source starts a new job, so the previous result's save state goes too.
+      saveDispatch({ type: 'save/reset' });
       await prepareSource({
         source: outcome.source,
         preset: getPreset(state.presetId),
@@ -84,7 +125,8 @@ export function ConversionScreen(): React.JSX.Element {
     working.current = true;
     try {
       cancelSignal.current = { cancelled: false };
-      await runConversion({
+      saveDispatch({ type: 'save/reset' });
+      const result = await runConversion({
         source: state.source,
         preset: getPreset(state.presetId),
         ports: enginePorts,
@@ -92,10 +134,19 @@ export function ConversionScreen(): React.JSX.Element {
         cancelSignal: cancelSignal.current,
         prepared: { summary: state.summary, encoderName: state.encoderName ?? 'audio-only' },
       });
+
+      // The conversion is finished at this point, so the copy out of the cache
+      // runs on its own state and cannot turn a success into a failure (TR-30).
+      if (result.status === 'done' && result.outputPath !== null) {
+        await attemptSave('photos', {
+          name: baseNameOf(result.outputPath),
+          path: result.outputPath,
+        });
+      }
     } finally {
       working.current = false;
     }
-  }, [state.source, state.summary, state.presetId, state.encoderName]);
+  }, [attemptSave, state.source, state.summary, state.presetId, state.encoderName]);
 
   const handleSelectPreset = useCallback((presetId: PresetId) => {
     dispatch({ type: 'preset/selected', presetId });
@@ -214,15 +265,16 @@ export function ConversionScreen(): React.JSX.Element {
                 variant="complete"
               />
               <Text style={styles.pathLabel} allowFontScaling>
-                Saved to the app cache
+                In the app cache
               </Text>
               <Text style={styles.path} allowFontScaling selectable>
                 {state.output.path}
               </Text>
-              <Text style={styles.caption} allowFontScaling>
-                Saving to a folder you choose arrives in the next phase. Copy this file out
-                before you uninstall the app.
-              </Text>
+              <SavePanel
+                state={saveState}
+                onSavePhotos={handleSavePhotos}
+                onSaveFolder={handleSaveFolder}
+              />
             </View>
           ) : null}
 
