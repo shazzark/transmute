@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { chooseVideoEncoder, meetsHardwareMinimum, pixelFormatFor } from './encoders';
+import {
+  chooseAudioEncoder,
+  chooseVideoEncoder,
+  meetsHardwareMinimum,
+  pixelFormatFor,
+  resolveAvailability,
+} from './encoders';
 import { getPreset } from './presets';
 
 const mp4 = getPreset('mp4');
@@ -54,6 +60,74 @@ describe('chooseVideoEncoder', () => {
     expect(pixelFormatFor('libopenh264')).toBe('yuv420p');
   });
 });
+
+describe('chooseAudioEncoder', () => {
+  it('accepts the preset codec when the build has it', () => {
+    expect(chooseAudioEncoder(getPreset('mp3'), ['libmp3lame', 'aac'])).toEqual({
+      ok: true,
+      encoder: 'libmp3lame',
+    });
+  });
+
+  it('fails by name when the build lacks the codec', () => {
+    const choice = chooseAudioEncoder(getPreset('wav'), ['libmp3lame', 'aac']);
+
+    expect(choice.ok).toBe(false);
+    if (!choice.ok) {
+      expect(choice.candidates).toEqual(['pcm_s16le']);
+      expect(choice.reason).toMatch(/no WAV audio encoder/i);
+      expect(choice.reason).toMatch(/pcm_s16le/);
+    }
+  });
+
+  it('reports that a preset with no audio track has nothing to choose', () => {
+    const silent = { ...getPreset('mp4'), audioCodec: null };
+    const choice = chooseAudioEncoder(silent, ['aac']);
+
+    expect(choice.ok).toBe(false);
+    if (!choice.ok) {
+      expect(choice.reason).toMatch(/no audio track/i);
+      expect(choice.candidates).toEqual([]);
+    }
+  });
+});
+
+describe('resolveAvailability', () => {
+  it('keeps every tile tappable while the build is unknown', () => {
+    expect(resolveAvailability(getPreset('webm'), null)).toEqual({ available: true, reason: '' });
+  });
+
+  it('enables a format whose encoder the build reports', () => {
+    const availability = resolveAvailability(getPreset('mkv'), ['h264_mediacodec', 'aac']);
+
+    expect(availability).toEqual({ available: true, reason: '' });
+  });
+
+  it('disables a video format whose encoder is missing', () => {
+    const availability = resolveAvailability(getPreset('webm'), ['h264_mediacodec', 'aac']);
+
+    expect(availability.available).toBe(false);
+    expect(availability.reason).toMatch(/not in this build/i);
+  });
+
+  it('disables an audio format whose encoder is missing', () => {
+    const availability = resolveAvailability(getPreset('flac'), ['h264_mediacodec', 'aac']);
+
+    expect(availability.available).toBe(false);
+    expect(availability.reason).toMatch(/not in this build/i);
+  });
+
+  it('judges each format on its own codec', () => {
+    const build = ['libopenh264', 'aac', 'libmp3lame'];
+
+    expect(resolveAvailability(getPreset('mp4'), build).available).toBe(true);
+    expect(resolveAvailability(getPreset('m4a'), build).available).toBe(true);
+    expect(resolveAvailability(getPreset('mp3'), build).available).toBe(true);
+    expect(resolveAvailability(getPreset('wav'), build).available).toBe(false);
+    expect(resolveAvailability(getPreset('webm'), build).available).toBe(false);
+  });
+});
+
 
 describe('meetsHardwareMinimum', () => {
   it('accepts exactly 176×144 and above', () => {

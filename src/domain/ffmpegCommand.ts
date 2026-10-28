@@ -34,6 +34,12 @@ export class InvalidCommandError extends Error {
   }
 }
 
+/**
+ * Containers whose index belongs at the front so a half-downloaded file already
+ * plays. Both QuickTime flavours use the same flag.
+ */
+const FASTSTART_CONTAINERS: readonly string[] = ['MP4', 'MOV'];
+
 function assertUsablePath(label: string, value: string): void {
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new InvalidCommandError(`The ${label} path is empty.`);
@@ -79,6 +85,10 @@ export function buildConversionArgv(input: BuildArgvInput): string[] {
       argv.push('-b:v', preset.videoBitrate);
     }
     argv.push('-pix_fmt', encoder.pixelFormat);
+    // WebM's libvpx options live here; no other preset has any.
+    if (preset.extraVideoArgs) {
+      argv.push(...preset.extraVideoArgs);
+    }
 
     if (sourceHasAudio && preset.audioCodec) {
       argv.push('-c:a', preset.audioCodec);
@@ -89,7 +99,7 @@ export function buildConversionArgv(input: BuildArgvInput): string[] {
       argv.push('-an');
     }
 
-    if (preset.container === 'MP4') {
+    if (FASTSTART_CONTAINERS.includes(preset.container)) {
       // Puts the index at the front so the file plays while it streams.
       argv.push('-movflags', '+faststart');
     }
@@ -97,7 +107,9 @@ export function buildConversionArgv(input: BuildArgvInput): string[] {
     if (!preset.audioCodec) {
       throw new InvalidCommandError(`The ${preset.label} preset has no audio codec.`);
     }
-    argv.push('-vn', '-c:a', preset.audioCodec);
+    // First audio stream by name, not "whatever FFmpeg defaults to", so a file
+    // with several tracks yields the same result every time.
+    argv.push('-map', '0:a:0', '-vn', '-c:a', preset.audioCodec);
     if (preset.audioBitrate) {
       argv.push('-b:a', preset.audioBitrate);
     }

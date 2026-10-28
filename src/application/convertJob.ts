@@ -141,7 +141,10 @@ export function jobReducer(state: JobState, action: JobAction): JobState {
       if (isBusy(state.status)) {
         return state;
       }
-      return { ...state, presetId: action.presetId };
+      // The encoder was resolved for the previous format, so it is dropped: the
+      // next job resolves one for the new preset instead of reusing a name that
+      // may not even belong to this container (TD-8).
+      return { ...state, presetId: action.presetId, encoderName: null };
 
     case 'convert/started':
       if (state.source === null || state.summary === null) {

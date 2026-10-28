@@ -33,6 +33,10 @@ export function ConversionSummary({
     summary?.audioCodec ?? null,
   ]);
   const outputDetails = `${preset.label} · ${preset.detail}`;
+  const note =
+    preset.kind === 'audio'
+      ? 'The sound is written to a new file. Your original file is never changed.'
+      : 'The new file is written separately. Your original video is never changed.';
 
   return (
     <View style={styles.card} accessibilityRole="summary">
@@ -71,7 +75,7 @@ export function ConversionSummary({
       </View>
 
       <Text style={styles.note} allowFontScaling>
-        The new file is written separately. Your original video is never changed.
+        {note}
       </Text>
     </View>
   );

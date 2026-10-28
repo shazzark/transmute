@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { getPreset } from '../domain/presets';
+import { summariseProbe } from '../domain/probe';
 import { initialJobState, jobReducer, type JobAction, type JobState } from './convertJob';
 import { prepareSource, runConversion, type ConversionPorts, type ProbeOutcome } from './runConversion';
 
@@ -141,7 +142,7 @@ describe('runConversion — success', () => {
   });
 
   it('falls back to the software encoder and reports it', async () => {
-    const { ports, convert } = makePorts({ listEncoders: async () => ['libopenh264'] });
+    const { ports, convert } = makePorts({ listEncoders: async () => ['libopenh264', 'aac'] });
     const tracker = trackState();
 
     await runConversion({ source, preset: getPreset('mp4'), ports, dispatch: tracker.dispatch });
@@ -370,3 +371,168 @@ describe('runConversion — failures', () => {
     expect(removeDirectory).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('runConversion — audio presets', () => {
+  /** A source with a picture but no sound, which no audio preset can use. */
+  const silentProbe: ProbeOutcome = {
+    ok: true,
+    information: {
+      format: { duration: '3.0', format_name: 'mp4' },
+      streams: [{ codec_type: 'video', codec_name: 'h264', width: 1080, height: 1920 }],
+    },
+    outcome: { success: true, cancelled: false, returnCode: 0, output: '' },
+  };
+
+  it('extracts audio and reports the audio encoder, not a video one', async () => {
+    const { ports, convert } = makePorts({ listEncoders: async () => ['libmp3lame'] });
+    const tracker = trackState();
+
+    const result = await runConversion({
+      source,
+      preset: getPreset('mp3'),
+      ports,
+      dispatch: tracker.dispatch,
+    });
+
+    expect(result.status).toBe('done');
+    expect(result.outputPath).toBe('/cache/jobs/job-1/Trip 2026.mp3');
+    expect(tracker.state.encoderName).toBe('libmp3lame');
+
+    const argv = convert.mock.calls[0]?.[0].argv as string[];
+    expect(argv).toContain('-vn');
+    expect(argv).not.toContain('-c:v');
+    expect(argv[argv.indexOf('-c:a') + 1]).toBe('libmp3lame');
+  });
+
+  it('keeps the audio encoder out of the video slot on the prepared path', async () => {
+    const { ports, convert } = makePorts({ listEncoders: async () => ['libmp3lame'] });
+    const tracker = trackState();
+    const preset = getPreset('mp3');
+
+    const prepared = await prepareSource({
+      source,
+      preset,
+      ports,
+      dispatch: tracker.dispatch,
+    });
+    const summary = prepared.summary;
+    const encoderName = tracker.state.encoderName;
+
+    expect(prepared.status).toBe('ready');
+    expect(encoderName).toBe('libmp3lame');
+    if (summary === null || encoderName === null) {
+      throw new Error('prepareSource did not hand back a probed summary');
+    }
+
+    const result = await runConversion({
+      source,
+      preset,
+      ports,
+      dispatch: tracker.dispatch,
+      prepared: { summary, encoderName, presetId: 'mp3' },
+    });
+
+    expect(result.status).toBe('done');
+    const argv = convert.mock.calls[0]?.[0].argv as string[];
+    expect(argv).not.toContain('-c:v');
+    expect(argv).not.toContain('-pix_fmt');
+    expect(argv.at(-1)).toBe('/cache/jobs/job-1/Trip 2026.mp3');
+  });
+
+  it('re-resolves when the prepared encoder belongs to another preset', async () => {
+    const probe = vi.fn(async () => probeOk);
+    const { ports, convert } = makePorts({
+      probe,
+      listEncoders: async () => ['h264_mediacodec', 'libvpx-vp9', 'aac', 'libopus'],
+    });
+    const tracker = trackState();
+
+    const result = await runConversion({
+      source,
+      preset: getPreset('webm'),
+      ports,
+      dispatch: tracker.dispatch,
+      // Resolved for MP4 a moment ago; WebM needs VP9, so it must be re-resolved
+      // instead of handing H.264 to a WebM job.
+      prepared: {
+        summary: summariseProbe(report),
+        encoderName: 'h264_mediacodec',
+        presetId: 'mp4',
+      },
+    });
+
+    expect(probe).toHaveBeenCalledTimes(1);
+    expect(result.status).toBe('done');
+    expect(tracker.state.encoderName).toBe('libvpx-vp9');
+
+    const argv = convert.mock.calls[0]?.[0].argv as string[];
+    expect(argv[argv.indexOf('-c:v') + 1]).toBe('libvpx-vp9');
+    expect(argv.at(-1)).toBe('/cache/jobs/job-1/Trip 2026.webm');
+  });
+
+  it('refuses to extract audio from a file that has none', async () => {
+    const { ports, convert } = makePorts({ probe: async () => silentProbe });
+    const tracker = trackState();
+
+    const result = await runConversion({
+      source,
+      preset: getPreset('mp3'),
+      ports,
+      dispatch: tracker.dispatch,
+    });
+
+    expect(result.failure?.code).toBe('unsupported-source');
+    expect(result.failure?.title).toBe('No audio found');
+    expect(convert).not.toHaveBeenCalled();
+    expect(tracker.state.status).toBe('failed');
+  });
+
+  it('names the missing audio encoder instead of writing a file', async () => {
+    const { ports, convert } = makePorts({
+      listEncoders: async () => ['h264_mediacodec', 'aac'],
+    });
+
+    const result = await runConversion({
+      source,
+      preset: getPreset('wav'),
+      ports,
+      dispatch: trackState().dispatch,
+    });
+
+    expect(result.failure?.code).toBe('no-encoder');
+    expect(result.failure?.detail).toContain('pcm_s16le');
+    expect(convert).not.toHaveBeenCalled();
+  });
+
+  it('refuses a video preset when the build cannot encode the source audio', async () => {
+    const { ports, convert } = makePorts({ listEncoders: async () => ['h264_mediacodec'] });
+
+    const result = await runConversion({
+      source,
+      preset: getPreset('mp4'),
+      ports,
+      dispatch: trackState().dispatch,
+    });
+
+    expect(result.failure?.code).toBe('no-encoder');
+    expect(result.failure?.detail).toContain('aac');
+    expect(convert).not.toHaveBeenCalled();
+  });
+
+  it('does not ask for an audio encoder when the source is silent', async () => {
+    const { ports } = makePorts({
+      listEncoders: async () => ['h264_mediacodec'],
+      probe: async () => silentProbe,
+    });
+
+    const result = await runConversion({
+      source,
+      preset: getPreset('mp4'),
+      ports,
+      dispatch: trackState().dispatch,
+    });
+
+    expect(result.status).toBe('done');
+  });
+});
+

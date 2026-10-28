@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildConversionArgv, InvalidCommandError } from './ffmpegCommand';
-import { getPreset } from './presets';
+import { getPreset, PRESETS } from './presets';
 
 const mp4 = getPreset('mp4');
 const hardware = { encoder: 'h264_mediacodec', pixelFormat: 'nv12' as const };
@@ -122,7 +122,10 @@ describe('buildConversionArgv', () => {
 
   it.each([
     ['mp3', ['-vn', '-c:a', 'libmp3lame', '-b:a', '192k']],
+    ['m4a', ['-vn', '-c:a', 'aac', '-b:a', '192k']],
+    ['wav', ['-vn', '-c:a', 'pcm_s16le']],
     ['flac', ['-vn', '-c:a', 'flac']],
+    ['ogg', ['-vn', '-c:a', 'libvorbis', '-b:a', '160k']],
     ['opus', ['-vn', '-c:a', 'libopus', '-b:a', '128k']],
   ] as const)('maps the %s preset to its audio target', (id, expected) => {
     const preset = getPreset(id);
@@ -134,8 +137,71 @@ describe('buildConversionArgv', () => {
     });
 
     const start = argv.indexOf('-vn');
+    expect(argv.slice(start - 2, start)).toEqual(['-map', '0:a:0']);
     expect(argv.slice(start, start + expected.length)).toEqual([...expected]);
     expect(argv[argv.length - 1]).toBe(`/cache/job-7/song${preset.extension}`);
     expect(argv).not.toContain('-c:v');
   });
 });
+
+describe('container-specific arguments', () => {
+  function buildFor(id: 'mp4' | 'mkv' | 'mov' | 'webm', encoderName: string) {
+    const preset = getPreset(id);
+    return buildConversionArgv({
+      preset,
+      inputPath: '/cache/in.mkv',
+      outputPath: `/cache/job-8/out${preset.extension}`,
+      encoder: { encoder: encoderName, pixelFormat: 'yuv420p' },
+      sourceHasAudio: true,
+    });
+  }
+
+  it('front-loads the index in both QuickTime containers', () => {
+    expect(buildFor('mp4', 'libopenh264').slice(-3)).toEqual([
+      '-movflags',
+      '+faststart',
+      '/cache/job-8/out.mp4',
+    ]);
+    expect(buildFor('mov', 'libopenh264').slice(-3)).toEqual([
+      '-movflags',
+      '+faststart',
+      '/cache/job-8/out.mov',
+    ]);
+  });
+
+  it('leaves Matroska and WebM without the QuickTime flag', () => {
+    expect(buildFor('mkv', 'libopenh264')).not.toContain('-movflags');
+    expect(buildFor('webm', 'libvpx-vp9')).not.toContain('-movflags');
+  });
+
+  it('asks libvpx for real-time mode in the WebM command only', () => {
+    const webm = buildFor('webm', 'libvpx-vp9');
+
+    expect(webm[webm.indexOf('-deadline') + 1]).toBe('realtime');
+    expect(webm[webm.indexOf('-cpu-used') + 1]).toBe('5');
+    expect(webm[webm.indexOf('-c:a') + 1]).toBe('libopus');
+    expect(buildFor('mp4', 'libopenh264')).not.toContain('-deadline');
+  });
+});
+
+describe.each(PRESETS.filter((preset) => preset.kind === 'video'))(
+  '$label video command',
+  (preset) => {
+    it('is complete and ends at the output path', () => {
+      const argv = buildConversionArgv({
+        preset,
+        inputPath: '/cache/in.mp4',
+        outputPath: `/cache/job-10/out${preset.extension}`,
+        encoder: {
+          encoder: preset.videoEncoderCandidates[0] ?? 'libopenh264',
+          pixelFormat: 'yuv420p',
+        },
+        sourceHasAudio: true,
+      });
+
+      expect(argv.slice(0, 4)).toEqual(['-y', '-hide_banner', '-i', '/cache/in.mp4']);
+      expect(argv[argv.indexOf('-c:a') + 1]).toBe(preset.audioCodec);
+      expect(argv.at(-1)).toBe(`/cache/job-10/out${preset.extension}`);
+    });
+  },
+);

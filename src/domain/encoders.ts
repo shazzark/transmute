@@ -70,6 +70,72 @@ export function chooseVideoEncoder(
   };
 }
 
+export type AudioEncoderChoice =
+  | { readonly ok: true; readonly encoder: string }
+  | {
+      readonly ok: false;
+      readonly reason: string;
+      /** What the build would have needed to offer. */
+      readonly candidates: readonly string[];
+    };
+
+/**
+ * The audio side of the same rule.
+ *
+ * A preset names exactly one audio codec, and the build either has that encoder
+ * or the job is refused by name. There is no candidate ladder here: a second
+ * codec would mean a different output format, which TD-8 forbids.
+ */
+export function chooseAudioEncoder(
+  preset: Preset,
+  availableEncoders: readonly string[],
+): AudioEncoderChoice {
+  const codec = preset.audioCodec;
+  if (codec === null) {
+    return { ok: false, reason: `${preset.label} has no audio track.`, candidates: [] };
+  }
+
+  if (!availableEncoders.includes(codec)) {
+    return {
+      ok: false,
+      reason: `This build has no ${preset.container} audio encoder. Needed: ${codec}.`,
+      candidates: [codec],
+    };
+  }
+
+  return { ok: true, encoder: codec };
+}
+
+export interface PresetAvailability {
+  readonly available: boolean;
+  /** Why the tile is disabled, in words; empty when it is available. */
+  readonly reason: string;
+}
+
+/**
+ * Capability detection for the format grid.
+ *
+ * `availableEncoders` is the engine's own `-encoders` report, or `null` until it
+ * has been read. An unknown build must not disable everything at first paint, so
+ * the tile stays tappable and a missing codec surfaces as a named failure
+ * instead of a dead grid.
+ */
+export function resolveAvailability(
+  preset: Preset,
+  availableEncoders: readonly string[] | null,
+): PresetAvailability {
+  if (availableEncoders === null) {
+    return { available: true, reason: '' };
+  }
+
+  const choice =
+    preset.kind === 'video'
+      ? chooseVideoEncoder(preset, availableEncoders)
+      : chooseAudioEncoder(preset, availableEncoders);
+
+  return choice.ok ? { available: true, reason: '' } : { available: false, reason: 'Not in this build' };
+}
+
 /**
  * Hardware encoders reject frames below 176×144, so a source smaller than that
  * cannot use them. Callers pass the probed dimensions; unknown dimensions skip

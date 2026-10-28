@@ -11,6 +11,7 @@
  */
 
 import {
+  chooseAudioEncoder,
   chooseVideoEncoder,
   isHardwareEncoder,
   meetsHardwareMinimum,
@@ -27,7 +28,7 @@ import {
 } from '../domain/errors';
 import { buildConversionArgv, InvalidCommandError } from '../domain/ffmpegCommand';
 import { buildOutputName, resolveCollision, sanitizeBaseName } from '../domain/naming';
-import type { Preset } from '../domain/presets';
+import type { Preset, PresetId } from '../domain/presets';
 import { progressFromStatistics } from '../domain/progress';
 import { summariseProbe, type MediaSummary, type RawProbeInformation } from '../domain/probe';
 import type { JobAction, SourceFile } from './convertJob';
@@ -74,6 +75,11 @@ export interface CancelSignal {
 export interface PreparedSource {
   readonly summary: MediaSummary;
   readonly encoderName: string;
+  /**
+   * Preset the encoder was resolved for. A job ignores a prepared source whose
+   * preset has since changed, since that encoder may not fit the new format.
+   */
+  readonly presetId: PresetId;
 }
 
 interface ResolveOptions {
@@ -83,7 +89,13 @@ interface ResolveOptions {
 }
 
 type ResolveResult =
-  | { readonly ok: true; readonly summary: MediaSummary; readonly choice: EncoderChoice | null }
+  | {
+      readonly ok: true;
+      readonly summary: MediaSummary;
+      readonly choice: EncoderChoice | null;
+      /** Resolved audio encoder, or `null` when the output has no audio track. */
+      readonly audioEncoder: string | null;
+    }
   | { readonly ok: false; readonly summary: MediaSummary | null; readonly failure: Failure };
 
 function isCancelled(signal: CancelSignal | undefined): boolean {
@@ -114,11 +126,29 @@ async function resolveSource(options: ResolveOptions): Promise<ResolveResult> {
     };
   }
 
-  if (preset.kind !== 'video') {
-    return { ok: true, summary, choice: null };
+  if (preset.kind === 'audio' && !summary.hasAudio) {
+    return {
+      ok: false,
+      summary,
+      failure: {
+        code: 'unsupported-source',
+        title: 'No audio found',
+        message: `This file has no audio stream, so ${preset.label} cannot be made from it.`,
+        recovery: 'Choose a file with sound, such as a video or an audio recording.',
+      },
+    };
   }
 
   const encoders = await ports.listEncoders();
+
+  if (preset.kind === 'audio') {
+    const audio = chooseAudioEncoder(preset, encoders);
+    if (!audio.ok) {
+      return { ok: false, summary, failure: describeMissingEncoder(audio.candidates) };
+    }
+    return { ok: true, summary, choice: null, audioEncoder: audio.encoder };
+  }
+
   const choice = chooseVideoEncoder(preset, encoders);
   if (!choice.ok) {
     return { ok: false, summary, failure: describeMissingEncoder(choice.candidates) };
@@ -134,7 +164,33 @@ async function resolveSource(options: ResolveOptions): Promise<ResolveResult> {
     };
   }
 
-  return { ok: true, summary, choice };
+  // The output keeps its audio track, so the container's audio encoder has to
+  // exist as well; otherwise the job would die halfway through the encode.
+  let audioEncoder: string | null = null;
+  if (summary.hasAudio) {
+    const audio = chooseAudioEncoder(preset, encoders);
+    if (!audio.ok) {
+      return { ok: false, summary, failure: describeMissingEncoder(audio.candidates) };
+    }
+    audioEncoder = audio.encoder;
+  }
+
+  return { ok: true, summary, choice, audioEncoder };
+}
+
+/**
+ * The encoder name the screen shows. A video preset reports the video encoder;
+ * an audio preset reports the audio encoder that will do the work. The fallback
+ * label only exists because the reducer stores a string; no preset reaches it.
+ */
+function encoderNameOf(resolved: {
+  readonly choice: EncoderChoice | null;
+  readonly audioEncoder: string | null;
+}): string {
+  if (resolved.choice?.ok === true) {
+    return resolved.choice.encoder;
+  }
+  return resolved.audioEncoder ?? 'audio-only';
 }
 
 /** Removes the job directory once; later cleanup calls are no-ops. */
@@ -188,7 +244,7 @@ export async function prepareSource(options: PrepareOptions): Promise<PrepareRes
   dispatch({
     type: 'probe/succeeded',
     summary: resolved.summary,
-    encoderName: resolved.choice?.ok === true ? resolved.choice.encoder : 'audio-only',
+    encoderName: encoderNameOf(resolved),
   });
 
   return { status: 'ready', summary: resolved.summary, failure: null };
@@ -219,17 +275,22 @@ export async function runConversion(options: RunConversionOptions): Promise<Conv
   let summary: MediaSummary;
   let choice: EncoderChoice | null;
 
-  if (prepared) {
+  // A prepared source is only trusted for the preset it was resolved for; the
+  // rest of the time the file is probed again, which costs a moment but cannot
+  // hand `-c:v` an encoder that belongs to another format.
+  if (prepared !== undefined && prepared.presetId === preset.id) {
     summary = prepared.summary;
+    // Judged by the preset, not by the stored name: an audio preset carries the
+    // audio encoder's name, which must never be handed to `-c:v`.
     choice =
-      prepared.encoderName === 'audio-only'
-        ? null
-        : {
+      preset.kind === 'video'
+        ? {
             ok: true,
             encoder: prepared.encoderName,
             hardware: isHardwareEncoder(prepared.encoderName),
             pixelFormat: pixelFormatFor(prepared.encoderName),
-          };
+          }
+        : null;
     dispatch({ type: 'probe/succeeded', summary, encoderName: prepared.encoderName });
   } else {
     const resolved = await resolveSource({ sourcePath: source.path, preset, ports });
@@ -253,7 +314,7 @@ export async function runConversion(options: RunConversionOptions): Promise<Conv
     dispatch({
       type: 'probe/succeeded',
       summary,
-      encoderName: choice?.ok === true ? choice.encoder : 'audio-only',
+      encoderName: encoderNameOf(resolved),
     });
   }
 

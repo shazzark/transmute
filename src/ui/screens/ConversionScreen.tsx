@@ -4,6 +4,7 @@ import { AccessibilityInfo, ScrollView, StyleSheet, Text, View } from 'react-nat
 import { canConvert, initialJobState, isBusy, jobReducer, type OutputFile } from '../../application/convertJob';
 import { prepareSource, runConversion, type CancelSignal } from '../../application/runConversion';
 import { saveOutput } from '../../application/saveOutput';
+import { resolveAvailability } from '../../domain/encoders';
 import { describePickFailure } from '../../domain/errors';
 import { baseNameOf } from '../../domain/naming';
 import { getPreset, type PresetId } from '../../domain/presets';
@@ -35,12 +36,40 @@ export function ConversionScreen(): React.JSX.Element {
   const [state, dispatch] = useReducer(jobReducer, initialJobState);
   const [saveState, saveDispatch] = useReducer(saveReducer, initialSaveState);
   const [confirmVisible, setConfirmVisible] = useState(false);
+  /**
+   * Encoders the bundled engine reported, or `null` while the list is unknown.
+   * The grid uses it to grey out formats this build cannot write; a failed read
+   * leaves it `null` so the user is not blocked on a diagnostic query — the
+   * conversion path still names any missing codec.
+   */
+  const [buildEncoders, setBuildEncoders] = useState<readonly string[] | null>(null);
   const cancelSignal = useRef<CancelSignal>({ cancelled: false });
   const working = useRef(false);
 
   const busy = isBusy(state.status);
   const preset = getPreset(state.presetId);
+  const availability = resolveAvailability(preset, buildEncoders);
   const converting = state.status === 'converting' || state.status === 'cancelling';
+
+  // One query per app run: the engine caches its own `-encoders` report.
+  useEffect(() => {
+    let active = true;
+    enginePorts
+      .listEncoders()
+      .then((encoders) => {
+        if (active) {
+          setBuildEncoders(encoders);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setBuildEncoders(null);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Announce phase changes once, not on every statistics tick (TR-20).
   useEffect(() => {
@@ -132,7 +161,17 @@ export function ConversionScreen(): React.JSX.Element {
         ports: enginePorts,
         dispatch,
         cancelSignal: cancelSignal.current,
-        prepared: { summary: state.summary, encoderName: state.encoderName ?? 'audio-only' },
+        // A preset change clears the encoder, so the job then resolves one for
+        // the chosen format itself instead of reusing the old name.
+        ...(state.encoderName
+          ? {
+              prepared: {
+                summary: state.summary,
+                encoderName: state.encoderName,
+                presetId: state.presetId,
+              },
+            }
+          : {}),
       });
 
       // The conversion is finished at this point, so the copy out of the cache
@@ -173,7 +212,9 @@ export function ConversionScreen(): React.JSX.Element {
       ? 'Reading the video. This takes a moment.'
       : state.failure && state.summary === null
         ? 'This file cannot be converted.'
-        : undefined;
+        : !availability.available
+          ? `${preset.label} is not available in this build.`
+          : undefined;
 
   return (
     <View style={styles.screen}>
@@ -184,27 +225,28 @@ export function ConversionScreen(): React.JSX.Element {
               Transmute
             </Text>
             <Text style={styles.subtitle} allowFontScaling>
-              Convert a video into another format on this device. Nothing is uploaded.
+              Convert a video into another format — or take out just its audio — on this device.
+              Nothing is uploaded.
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionLabel} allowFontScaling accessibilityRole="header">
-              Source video
+              Source file
             </Text>
             {state.source === null ? (
               <PrimaryButton
                 label="Select Video"
                 onPress={handleChoose}
                 disabled={busy}
-                accessibilityLabel="Select a video to convert"
+                accessibilityLabel="Select a video or audio file to convert"
               />
             ) : (
               <SecondaryButton
                 label="Select Video"
                 onPress={handleChoose}
                 disabled={busy}
-                accessibilityLabel={`Select a different video to replace ${state.source.name}`}
+                accessibilityLabel={`Select a different file to replace ${state.source.name}`}
               />
             )}
             <VideoPreviewCard
@@ -223,11 +265,12 @@ export function ConversionScreen(): React.JSX.Element {
             <PresetSelector
               selectedId={state.presetId}
               onSelect={handleSelectPreset}
+              buildEncoders={buildEncoders}
               disabled={busy}
             />
             {state.source === null ? (
               <Text style={styles.caption} allowFontScaling>
-                Select a video above, then tap Convert to write a new file in this format.
+                Select a file above, then tap Convert to write a new file in this format.
               </Text>
             ) : null}
             {state.encoderName ? (
@@ -313,7 +356,7 @@ export function ConversionScreen(): React.JSX.Element {
             <PrimaryButton
               label={`Convert to ${preset.label}`}
               onPress={handleConvert}
-              disabled={!canConvert(state) || busy}
+              disabled={!canConvert(state) || busy || !availability.available}
               disabledReason={convertDisabledReason}
               accessibilityLabel={`Convert ${state.source.name} to ${preset.label}`}
             />

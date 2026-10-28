@@ -1,51 +1,70 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { resolveAvailability, type PresetAvailability } from '../../domain/encoders';
 import { PRESETS, type Preset, type PresetId } from '../../domain/presets';
 import { color, radius, spacing, touchTarget, type, weight } from '../tokens';
 
 export interface PresetSelectorProps {
   selectedId: PresetId;
   onSelect: (id: PresetId) => void;
+  /**
+   * Encoders the bundled engine reported, or `null` until that list arrives.
+   * An unknown build leaves every tile tappable; a known gap disables one.
+   */
+  buildEncoders?: readonly string[] | null;
   disabled?: boolean;
 }
 
 /**
  * The output-format grid: every preset stays visible so the matrix never
- * changes shape. A preset that cannot run yet is disabled and says so in words;
- * selection is also shown with a check mark, never by colour alone (TR-20).
+ * changes shape. A preset this build cannot write is disabled and says so in
+ * words; selection is also shown with a check mark, never by colour alone
+ * (TR-20).
  */
 export function PresetSelector({
   selectedId,
   onSelect,
+  buildEncoders = null,
   disabled = false,
 }: PresetSelectorProps): React.JSX.Element {
   return (
     <View style={styles.grid} accessibilityRole="radiogroup">
-      {PRESETS.map((preset) => (
-        <PresetTile
-          key={preset.id}
-          preset={preset}
-          selected={preset.id === selectedId}
-          disabled={disabled || !preset.available}
-          onSelect={onSelect}
-        />
-      ))}
+      {PRESETS.map((preset) => {
+        const availability = resolveAvailability(preset, buildEncoders);
+        return (
+          <PresetTile
+            key={preset.id}
+            preset={preset}
+            availability={availability}
+            selected={preset.id === selectedId}
+            disabled={disabled || !availability.available}
+            onSelect={onSelect}
+          />
+        );
+      })}
     </View>
   );
 }
 
 interface PresetTileProps {
   preset: Preset;
+  availability: PresetAvailability;
   selected: boolean;
   disabled: boolean;
   onSelect: (id: PresetId) => void;
 }
 
-function PresetTile({ preset, selected, disabled, onSelect }: PresetTileProps): React.JSX.Element {
-  const accessibilityLabel = preset.available
+function PresetTile({
+  preset,
+  availability,
+  selected,
+  disabled,
+  onSelect,
+}: PresetTileProps): React.JSX.Element {
+  const accessibilityLabel = availability.available
     ? `${preset.label}, ${preset.detail}`
-    : `${preset.label}, ${preset.detail}. ${preset.unavailableReason}`;
+    : `${preset.label}, ${preset.detail}. Unavailable: ${availability.reason}`;
 
   return (
     <Pressable
@@ -85,9 +104,9 @@ function PresetTile({ preset, selected, disabled, onSelect }: PresetTileProps): 
       <Text style={styles.tileDetail} allowFontScaling>
         {preset.detail}
       </Text>
-      {!preset.available ? (
+      {!availability.available ? (
         <Text style={styles.tileNote} allowFontScaling>
-          {preset.unavailableReason}
+          {availability.reason}
         </Text>
       ) : null}
     </Pressable>

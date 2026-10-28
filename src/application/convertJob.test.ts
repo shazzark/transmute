@@ -101,6 +101,16 @@ describe('jobReducer — pick and probe', () => {
 
     expect(state.presetId).toBe('mp4');
   });
+
+  it('drops the encoder resolved for the previous format on a preset change', () => {
+    const state = jobReducer(probed(), { type: 'preset/selected', presetId: 'webm' });
+
+    expect(state.presetId).toBe('webm');
+    expect(state.encoderName).toBeNull();
+    // The preview stays, and Convert stays available: the job re-resolves.
+    expect(state.summary).toEqual(summary);
+    expect(canConvert(state)).toBe(true);
+  });
 });
 
 describe('jobReducer — conversion', () => {
