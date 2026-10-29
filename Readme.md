@@ -63,6 +63,8 @@ Subtitles are handled as text tracks only â€” nothing is burned into the pi
 - **Embed:** one sidecar at a time. Only `.srt` is accepted in this phase; the file is validated (timing lines, cue count, span) before the engine is asked to read it, so a malformed file is refused with a reason instead of producing a broken output.
 - **Extract:** any embedded text track can be copied out to `.srt` or `.vtt`. The engine writes it into the job directory in the app cache, and the panel then offers to save it into a folder the user picks â€” Downloads or Documents, so it shows up in a file manager. A sidecar is a text document, not media, so the photo library is never offered; Android is handed `application/x-subrip` (or `text/vtt`) when the file is created, falling back to `text/plain` in a folder that refuses it.
 
+The table records the requested codec mapping; player behavior is descriptive, not tested on this device. Subtitle track listings and playback remain unverified for every container.
+
 | Output format | Subtitle codec | What players do with it |
 |---|---|---|
 | MP4 | `mov_text` | VLC, mpv, and most desktop players show the track; some TV and gallery apps ignore it |
