@@ -1,16 +1,20 @@
 /**
- * Copying a finished conversion out of the app cache.
+ * Copying a finished file out of the app cache.
  *
- * The conversion is already complete when this runs, so nothing here can lose
- * the output: a refused copy is reported and the screen offers it again. Ports
- * keep MediaLibrary and the system folder picker out of this file, which is what
- * makes both destinations testable in Node (TR-24).
+ * Both outputs of the app travel this way: a converted video or audio file, and
+ * an extracted subtitle file. The work is already complete when this runs, so
+ * nothing here can lose it: a refused copy is reported and the screen offers it
+ * again. Ports keep MediaLibrary and the system folder picker out of this file,
+ * which is what makes both destinations testable in Node (TR-24).
  */
 
-import { describeSaveFailure, type Failure } from '../domain/errors';
-import type { SaveAction, SaveTarget } from '../domain/saveIntent';
+import { describeSaveFailure, describeTextSaveUnsupported, type Failure } from '../domain/errors';
+import { mimeTypeCandidates } from '../domain/mimeTypes';
+import { canSaveTo, type SaveAction, type SaveFileKind, type SaveTarget } from '../domain/saveIntent';
 
 export interface SaveRequest {
+  /** Media can go to Photos or a folder; a subtitle file only to a folder. */
+  readonly kind: SaveFileKind;
   readonly target: SaveTarget;
   /** Absolute path of the converted file inside the job directory. */
   readonly path: string;
@@ -25,12 +29,19 @@ export type FolderPickOutcome =
   | { readonly status: 'failed'; readonly error: unknown };
 
 export interface CopyToFolderRequest {
+  readonly kind: SaveFileKind;
   readonly path: string;
   readonly name: string;
   /** SAF tree URI the user granted in this session. */
   readonly folderUri: string;
   /** Human name of that folder, e.g. `Download`. */
   readonly folderLabel: string;
+  /**
+   * MIME types to write the document as, most specific first. A text file is
+   * created by the adapter under one of these; a media file is copied as bytes
+   * and the type is only advisory.
+   */
+  readonly mimeTypes: readonly string[];
 }
 
 export interface SavePorts {
@@ -65,6 +76,14 @@ export async function saveOutput({
   dispatch,
 }: SaveOptions): Promise<SaveOutcome> {
   dispatch({ type: 'save/started', target: request.target });
+
+  // Photos has no collection for a text file, so the refusal is decided here —
+  // before a port is asked to do something the platform cannot do.
+  if (!canSaveTo(request.kind, request.target)) {
+    const failure = describeTextSaveUnsupported();
+    dispatch({ type: 'save/failed', failure });
+    return { status: 'failed', failure };
+  }
 
   try {
     const location =
@@ -101,10 +120,12 @@ async function saveToPickedFolder(
   }
 
   const { location } = await ports.copyToFolder({
+    kind: request.kind,
     path: request.path,
     name: request.name,
     folderUri: pick.uri,
     folderLabel: pick.label,
+    mimeTypes: mimeTypeCandidates(request.name),
   });
   return location;
 }

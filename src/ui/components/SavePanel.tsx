@@ -3,8 +3,10 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import {
   isSaving,
+  saveTargets,
   savedLocation,
   targetLabel,
+  type SaveFileKind,
   type SaveState,
   type SaveTarget,
 } from '../../domain/saveIntent';
@@ -14,27 +16,37 @@ import { color, spacing, type, weight } from '../tokens';
 
 export interface SavePanelProps {
   readonly state: SaveState;
-  readonly onSavePhotos: () => void;
-  readonly onSaveFolder: () => void;
+  /**
+   * What is being copied out. Media goes to Photos or a folder; a subtitle file
+   * has no place in the photo library, so only the folder is offered.
+   */
+  readonly kind?: SaveFileKind;
+  readonly onSave: (target: SaveTarget) => void;
 }
 
-/** The two destinations, in the order they are offered. */
-const TARGETS: readonly SaveTarget[] = ['photos', 'folder'];
+/** The sentence under the buttons, which differs by what is being copied. */
+const NOTES: Record<SaveFileKind, string> = {
+  media:
+    'Saving copies the finished file out of the app cache. The conversion is already done, so a refused copy never loses it.',
+  subtitle:
+    'Saving writes the subtitle file into the folder you pick. Choose Downloads or Documents to find it in your files app.',
+};
+
+const FILE_LABELS: Record<SaveFileKind, string> = {
+  media: 'converted file',
+  subtitle: 'subtitle file',
+};
 
 /**
- * Gets the finished file out of the app cache.
+ * Gets a finished file out of the app cache.
  *
- * Both destinations are always offered, because either can be refused: a
- * library that will not take the file does not mean the folder will not. A
- * landed copy is stated per destination and never inferred, so saving to a
- * folder does not make the screen claim the file is in Photos (TR-30).
+ * Every destination the kind of file can go to is offered, because any of them
+ * can be refused. A landed copy is stated per destination and never inferred, so
+ * saving to a folder does not make the screen claim the file is in Photos
+ * (TR-30).
  */
-export function SavePanel({ state, onSavePhotos, onSaveFolder }: SavePanelProps): React.JSX.Element {
+export function SavePanel({ state, kind = 'media', onSave }: SavePanelProps): React.JSX.Element {
   const saving = isSaving(state);
-  const handlers: Record<SaveTarget, () => void> = {
-    photos: onSavePhotos,
-    folder: onSaveFolder,
-  };
 
   return (
     <View style={styles.panel}>
@@ -42,7 +54,7 @@ export function SavePanel({ state, onSavePhotos, onSaveFolder }: SavePanelProps)
         Keep a copy
       </Text>
 
-      {TARGETS.map((target) => {
+      {saveTargets(kind).map((target) => {
         const location = savedLocation(state, target);
         const active = saving && state.target === target;
 
@@ -52,9 +64,9 @@ export function SavePanel({ state, onSavePhotos, onSaveFolder }: SavePanelProps)
               label={
                 active ? `Saving to ${targetLabel(target)}…` : `Save to ${targetLabel(target)}`
               }
-              onPress={handlers[target]}
+              onPress={() => onSave(target)}
               disabled={saving}
-              accessibilityLabel={`Save the converted file to ${targetLabel(target)}`}
+              accessibilityLabel={`Save the ${FILE_LABELS[kind]} to ${targetLabel(target)}`}
             />
             {location !== null ? (
               <Text style={styles.saved} allowFontScaling>
@@ -75,8 +87,7 @@ export function SavePanel({ state, onSavePhotos, onSaveFolder }: SavePanelProps)
         />
       ) : (
         <Text style={styles.note} allowFontScaling>
-          Saving copies the finished file out of the app cache. The conversion is already
-          done, so a refused copy never loses it.
+          {NOTES[kind]}
         </Text>
       )}
     </View>

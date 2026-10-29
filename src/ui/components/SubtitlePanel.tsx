@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { SubtitleTrack } from '../../domain/probe';
+import { savedLocation, type SaveState } from '../../domain/saveIntent';
 import type { SubtitleState } from '../../domain/subtitleIntent';
 import {
   SUBTITLE_CONTAINERS,
@@ -13,12 +14,15 @@ import {
 import { metadataLine } from '../format';
 import { color, radius, spacing, touchTarget, type, weight } from '../tokens';
 import { Banner } from './Banner';
+import { SavePanel } from './SavePanel';
 import { SecondaryButton } from './SecondaryButton';
 
 export interface SubtitlePanelProps {
   /** What the chosen output format can do with a subtitle track. */
   readonly availability: SubtitleAvailability;
   readonly state: SubtitleState;
+  /** Copying the extracted file out of the cache; separate from the video's save. */
+  readonly saveState: SaveState;
   /** Subtitle tracks inside the probed source, in stream order. */
   readonly tracks: readonly SubtitleTrack[];
   /** The track the user picked, or `null` to use the first one. */
@@ -30,6 +34,8 @@ export interface SubtitlePanelProps {
   readonly onClear: () => void;
   readonly onSelectFormat: (format: SubtitleFormat) => void;
   readonly onExtract: () => void;
+  /** Saves the extracted file to a folder the user picks. */
+  readonly onSaveSubtitles: () => void;
 }
 
 const FORMAT_LABELS: Record<SubtitleFormat, string> = { srt: 'SRT', vtt: 'VTT' };
@@ -55,6 +61,7 @@ function spanLabel(sidecar: ValidatedSidecar): string {
 export function SubtitlePanel({
   availability,
   state,
+  saveState,
   tracks,
   selectedTrackIndex,
   disabled,
@@ -63,11 +70,15 @@ export function SubtitlePanel({
   onClear,
   onSelectFormat,
   onExtract,
+  onSaveSubtitles,
 }: SubtitlePanelProps): React.JSX.Element {
   const sidecar = state.sidecar;
   const activeTrack = selectedTrackIndex ?? tracks[0]?.streamIndex ?? null;
   const extracting = state.extractionStatus === 'running';
   const idle = disabled || state.sidecarStatus === 'choosing';
+  /** Where the extracted file was actually put; `null` while only the cache has it. */
+  const savedTo = savedLocation(saveState, 'folder');
+
 
   return (
     <View style={styles.panel}>
@@ -217,14 +228,24 @@ export function SubtitlePanel({
           {state.extractionStatus === 'done' && state.extractionOutput ? (
             <View style={styles.output}>
               <Text style={styles.detail} allowFontScaling>
-                Extracted to {state.extractionOutput.name}
+                Extracted {state.extractionOutput.name}
               </Text>
-              <Text style={styles.path} allowFontScaling selectable>
-                {state.extractionOutput.path}
-              </Text>
-              <Text style={styles.note} allowFontScaling>
-                This file stays in the app cache. Extract it again to keep a second copy.
-              </Text>
+              {/* Once a copy has landed, the folder it went to is the useful
+                  path; the cache path is only shown while it is all there is. */}
+              {savedTo === null ? (
+                <>
+                  <Text style={styles.detail} allowFontScaling>
+                    In the app cache
+                  </Text>
+                  <Text style={styles.path} allowFontScaling selectable>
+                    {state.extractionOutput.path}
+                  </Text>
+                  <Text style={styles.note} allowFontScaling>
+                    The app cache is not visible in your files app, and the system may clear it.
+                  </Text>
+                </>
+              ) : null}
+              <SavePanel state={saveState} kind="subtitle" onSave={onSaveSubtitles} />
             </View>
           ) : null}
 

@@ -236,7 +236,7 @@ export function describeSaveFailure(error: unknown, destination: SaveDestination
       recovery:
         destination === 'photos'
           ? 'Allow media access for this app in Settings, or save a copy to a folder instead.'
-          : 'Choose a folder the app may write to, such as Downloads or Documents.',
+          : 'Choose a folder the app may write to, such as Downloads or Documents. The file is still in the app cache.',
       ...detail,
     };
   }
@@ -257,6 +257,23 @@ export function describeSaveFailure(error: unknown, destination: SaveDestination
         recovery: 'Choose another folder and try again. The file is still in the app cache.',
         ...detail,
       };
+}
+
+/**
+ * A subtitle file aimed at the photo library.
+ *
+ * MediaStore indexes photos, video, and audio; a plain-text sidecar has no
+ * collection to join. The request is refused here, with the next step named,
+ * rather than handed to a library that can only answer with a generic error.
+ */
+export function describeTextSaveUnsupported(): Failure {
+  return {
+    code: 'save-failed',
+    title: 'Photos cannot take a text file',
+    message:
+      'The media library stores photos, video, and audio only, so a subtitle file cannot be added to it.',
+    recovery: 'Save the subtitle file to a folder instead, and pick Downloads or Documents.',
+  };
 }
 
 // ---------------------------------------------------------------------------

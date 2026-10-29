@@ -1,9 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { initialSaveState, saveReducer, type SaveAction, type SaveState } from '../domain/saveIntent';
-import { saveOutput, type SavePorts, type SaveRequest } from './saveOutput';
+import {
+  saveOutput,
+  type CopyToFolderRequest,
+  type SavePorts,
+  type SaveRequest,
+} from './saveOutput';
 
 const request: SaveRequest = {
+  kind: 'media',
   target: 'photos',
   path: '/data/user/0/dev.transmute/cache/transmute/job-1/Trip 2026.mp4',
   name: 'Trip 2026.mp4',
@@ -23,7 +29,9 @@ function makePorts(overrides: Partial<SavePorts> = {}): Fakes {
     uri: 'content://com.android.externalstorage.documents/tree/primary%3ADownload',
     label: 'Download',
   }));
-  const copyToFolder = vi.fn(async () => ({ location: 'Download/Trip 2026.mp4' }));
+  const copyToFolder = vi.fn(async (copy: CopyToFolderRequest) => ({
+    location: `Download/${copy.name}`,
+  }));
 
   const ports: SavePorts = { saveToPhotos, pickFolder, copyToFolder, ...overrides };
 
@@ -95,10 +103,12 @@ describe('saveOutput — folder', () => {
 
     expect(pickFolder).toHaveBeenCalledTimes(1);
     expect(copyToFolder).toHaveBeenCalledWith({
+      kind: 'media',
       path: toFolder.path,
       name: toFolder.name,
       folderUri: 'content://com.android.externalstorage.documents/tree/primary%3ADownload',
       folderLabel: 'Download',
+      mimeTypes: ['video/mp4'],
     });
     expect(saveToPhotos).not.toHaveBeenCalled();
     expect(outcome).toEqual({ status: 'saved', location: 'Download/Trip 2026.mp4' });
@@ -150,5 +160,92 @@ describe('saveOutput — folder', () => {
     if (outcome.status === 'failed') {
       expect(outcome.failure.title).toBe('Not enough space');
     }
+  });
+});
+
+describe('saveOutput — extracted subtitles', () => {
+  const subtitle: SaveRequest = {
+    kind: 'subtitle',
+    target: 'folder',
+    path: '/data/user/0/dev.transmute/cache/transmute/job-2/Trip 2026.srt',
+    name: 'Trip 2026.srt',
+  };
+
+  it('copies the subtitle into the folder as SubRip and reports where it went', async () => {
+    const { ports, copyToFolder, pickFolder, saveToPhotos } = makePorts();
+    const tracker = trackSave();
+
+    const outcome = await saveOutput({ request: subtitle, ports, dispatch: tracker.dispatch });
+
+    expect(pickFolder).toHaveBeenCalledTimes(1);
+    expect(copyToFolder).toHaveBeenCalledWith({
+      kind: 'subtitle',
+      path: subtitle.path,
+      name: subtitle.name,
+      folderUri: 'content://com.android.externalstorage.documents/tree/primary%3ADownload',
+      folderLabel: 'Download',
+      // The type the folder is asked for, with the plain-text fallback behind it.
+      mimeTypes: ['application/x-subrip', 'text/plain'],
+    });
+    expect(saveToPhotos).not.toHaveBeenCalled();
+    expect(outcome).toEqual({ status: 'saved', location: 'Download/Trip 2026.srt' });
+    expect(tracker.state.folder).toBe('Download/Trip 2026.srt');
+    expect(tracker.state.photos).toBeNull();
+  });
+
+  it('writes a WebVTT file as text/vtt', async () => {
+    const { ports, copyToFolder } = makePorts();
+    const tracker = trackSave();
+
+    await saveOutput({
+      request: { ...subtitle, name: 'Trip 2026.vtt', path: '/cache/job-2/Trip 2026.vtt' },
+      ports,
+      dispatch: tracker.dispatch,
+    });
+
+    expect(copyToFolder).toHaveBeenCalledWith(
+      expect.objectContaining({ mimeTypes: ['text/vtt', 'text/plain'] }),
+    );
+  });
+
+  it('refuses the photo library before asking it, and names the folder instead', async () => {
+    const { ports, saveToPhotos, pickFolder, copyToFolder } = makePorts();
+    const tracker = trackSave();
+
+    const outcome = await saveOutput({
+      request: { ...subtitle, target: 'photos' },
+      ports,
+      dispatch: tracker.dispatch,
+    });
+
+    expect(outcome.status).toBe('failed');
+    if (outcome.status === 'failed') {
+      expect(outcome.failure.code).toBe('save-failed');
+      expect(outcome.failure.title).toBe('Photos cannot take a text file');
+      expect(outcome.failure.recovery).toMatch(/folder/i);
+    }
+    expect(saveToPhotos).not.toHaveBeenCalled();
+    expect(pickFolder).not.toHaveBeenCalled();
+    expect(copyToFolder).not.toHaveBeenCalled();
+    expect(tracker.state.status).toBe('failed');
+    expect(tracker.state.photos).toBeNull();
+  });
+
+  it('reports a refused copy without losing the extracted file', async () => {
+    const { ports } = makePorts({
+      copyToFolder: async () => {
+        throw new Error('Permission denied');
+      },
+    });
+    const tracker = trackSave();
+
+    const outcome = await saveOutput({ request: subtitle, ports, dispatch: tracker.dispatch });
+
+    expect(outcome.status).toBe('failed');
+    if (outcome.status === 'failed') {
+      expect(outcome.failure.title).toBe('Access refused');
+      expect(outcome.failure.recovery).toMatch(/app cache/);
+    }
+    expect(tracker.state.folder).toBeNull();
   });
 });

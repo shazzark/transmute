@@ -4,7 +4,9 @@
  * The only module that talks to `expo-media-library` or opens Android's folder
  * picker, so the copy logic above it stays testable in Node (TR-24). Nothing
  * here deletes the converted file: the app cache keeps it until the job is
- * cleared, whatever the platform does with the copy.
+ * cleared, whatever the platform does with the copy. Media travels as bytes,
+ * while a subtitle is written as text under an explicit MIME type — an
+ * extension alone does not tell Android what the document is.
  */
 
 import { Directory, File } from 'expo-file-system';
@@ -75,6 +77,53 @@ async function copyIntoFolder(
   }
 }
 
+/** Removes a document this module created, ignoring a provider that refuses. */
+function discard(file: File | null): void {
+  if (file === null || !file.exists) {
+    return;
+  }
+  try {
+    file.delete();
+  } catch {
+    // A refused delete is not worth failing the attempt over: the caller is
+    // about to report the original error, which is the useful one.
+  }
+}
+
+/**
+ * Writes a text file into the folder under one of `mimeTypes`.
+ *
+ * A copy would let the provider name the document's type from the extension, and
+ * `.srt` is not in Android's own table — the file would be stored as an unknown
+ * blob that no reader offers to open. `createFile` takes the type the domain
+ * chose, which is the only way a subtitle arrives as a subtitle. A folder that
+ * refuses `application/x-subrip` is retried with `text/plain`; nothing is left
+ * behind if both are refused (TR-24).
+ */
+async function writeTextIntoFolder(
+  source: File,
+  folder: Directory,
+  targetName: string,
+  mimeTypes: readonly string[],
+): Promise<void> {
+  const text = await source.text();
+  let lastError: unknown = new Error('No MIME type was offered for this file.');
+
+  for (const mimeType of mimeTypes) {
+    let created: File | null = null;
+    try {
+      created = folder.createFile(targetName, mimeType);
+      await created.write(text);
+      return;
+    } catch (error) {
+      discard(created);
+      lastError = error;
+    }
+  }
+
+  throw lastError;
+}
+
 export const savePorts: SavePorts = {
   async saveToPhotos(path) {
     const file = new File(path);
@@ -92,13 +141,25 @@ export const savePorts: SavePorts = {
     }
   },
 
-  async copyToFolder({ path, name, folderUri, folderLabel: label }: CopyToFolderRequest) {
+  async copyToFolder({
+    kind,
+    path,
+    name,
+    folderUri,
+    folderLabel: label,
+    mimeTypes,
+  }: CopyToFolderRequest) {
     const folder = new Directory(folderUri);
     const source = new File(path);
     const taken = folder.list().map((entry) => entry.name);
     const targetName = resolveCollision(name, taken);
 
-    await copyIntoFolder(source, folder, targetName);
+    if (kind === 'subtitle') {
+      await writeTextIntoFolder(source, folder, targetName, mimeTypes);
+    } else {
+      await copyIntoFolder(source, folder, targetName);
+    }
+
     return { location: `${label}/${targetName}` };
   },
 };

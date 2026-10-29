@@ -16,6 +16,31 @@ import type { Failure, SaveDestination } from './errors';
 /** The same two destinations the failure messages talk about. */
 export type SaveTarget = SaveDestination;
 
+/**
+ * What is being copied out of the cache.
+ *
+ * The photo library indexes photos, video, and audio only, so a subtitle file
+ * has exactly one destination. Keeping the distinction here — rather than in the
+ * screen — means the offer and the refusal are always the same decision.
+ */
+export type SaveFileKind = 'media' | 'subtitle';
+
+/** The destinations each kind of file can go to, in the order they are shown. */
+const TARGETS: Record<SaveFileKind, readonly SaveTarget[]> = {
+  media: ['photos', 'folder'],
+  subtitle: ['folder'],
+};
+
+/** The destinations offered for one kind of file. */
+export function saveTargets(kind: SaveFileKind): readonly SaveTarget[] {
+  return TARGETS[kind];
+}
+
+/** Whether a destination can take this kind of file at all. */
+export function canSaveTo(kind: SaveFileKind, target: SaveTarget): boolean {
+  return TARGETS[kind].includes(target);
+}
+
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'failed';
 
 export interface SaveState {

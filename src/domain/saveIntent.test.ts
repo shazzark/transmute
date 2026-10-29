@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import { describeSaveFailure } from './errors';
 import {
+  canSaveTo,
   initialSaveState,
   isSaving,
   saveReducer,
+  saveTargets,
   savedLocation,
   targetLabel,
   type SaveAction,
@@ -118,6 +120,21 @@ describe('save helpers', () => {
   it('names the destinations in sentences', () => {
     expect(targetLabel('photos')).toBe('Photos');
     expect(targetLabel('folder')).toBe('a folder');
+  });
+});
+
+describe('destinations per kind of file', () => {
+  it('offers both destinations for media', () => {
+    expect(saveTargets('media')).toEqual(['photos', 'folder']);
+    expect(canSaveTo('media', 'photos')).toBe(true);
+    expect(canSaveTo('media', 'folder')).toBe(true);
+  });
+
+  it('offers only the folder for a subtitle file', () => {
+    // MediaStore has no collection for a document, so Photos is not offered.
+    expect(saveTargets('subtitle')).toEqual(['folder']);
+    expect(canSaveTo('subtitle', 'photos')).toBe(false);
+    expect(canSaveTo('subtitle', 'folder')).toBe(true);
   });
 });
 

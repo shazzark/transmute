@@ -15,6 +15,7 @@ import {
   initialSubtitleState,
   isSubtitleBusy,
   subtitleReducer,
+  type ExtractedSubtitleFile,
 } from '../../domain/subtitleIntent';
 import { resolveSubtitleAvailability, type SubtitleFormat } from '../../domain/subtitles';
 import { cancelActiveConversion, enginePorts } from '../../native/ffmpeg';
@@ -46,6 +47,11 @@ export function ConversionScreen(): React.JSX.Element {
   const [state, dispatch] = useReducer(jobReducer, initialJobState);
   const [saveState, saveDispatch] = useReducer(saveReducer, initialSaveState);
   const [subtitles, subtitleDispatch] = useReducer(subtitleReducer, initialSubtitleState);
+  /**
+   * The extracted subtitle file has its own copy state: a saved sidecar must not
+   * make the video claim it is already in a folder, or the other way round.
+   */
+  const [subtitleSaveState, subtitleSaveDispatch] = useReducer(saveReducer, initialSaveState);
   /** Which embedded track to extract; `null` means the first one. */
   const [selectedTrackIndex, setSelectedTrackIndex] = useState<number | null>(null);
   const [confirmVisible, setConfirmVisible] = useState(false);
@@ -111,6 +117,20 @@ export function ConversionScreen(): React.JSX.Element {
     }
   }, [saveState]);
 
+  // The subtitle file's copy is announced separately, because it is a separate file.
+  useEffect(() => {
+    if (subtitleSaveState.status === 'saved') {
+      AccessibilityInfo.announceForAccessibility(
+        `Subtitle file saved to ${
+          savedLocation(subtitleSaveState, subtitleSaveState.target) ??
+          targetLabel(subtitleSaveState.target)
+        }`,
+      );
+    } else if (subtitleSaveState.status === 'failed' && subtitleSaveState.failure) {
+      AccessibilityInfo.announceForAccessibility(subtitleSaveState.failure.message);
+    }
+  }, [subtitleSaveState]);
+
   // A rejected subtitle file says why before the job even starts (TR-20).
   useEffect(() => {
     if (subtitles.sidecarStatus === 'failed' && subtitles.sidecarFailure) {
@@ -133,24 +153,45 @@ export function ConversionScreen(): React.JSX.Element {
   /** Copies one finished output to one destination; never touches the job state. */
   const attemptSave = useCallback(async (target: SaveTarget, output: OutputFile) => {
     await saveOutput({
-      request: { target, path: output.path, name: output.name },
+      request: { kind: 'media', target, path: output.path, name: output.name },
       ports: savePorts,
       dispatch: saveDispatch,
     });
   }, []);
+
+  /**
+   * Copies the extracted subtitle file out of the cache.
+   *
+   * A subtitle is a document, not media, so the folder is the only destination;
+   * the kind also decides the MIME type the folder receives it under.
+   */
+  const attemptSubtitleSave = useCallback(
+    async (target: SaveTarget, output: ExtractedSubtitleFile) => {
+      await saveOutput({
+        request: { kind: 'subtitle', target, path: output.path, name: output.name },
+        ports: savePorts,
+        dispatch: subtitleSaveDispatch,
+      });
+    },
+    [],
+  );
 
   const handleSave = useCallback(
     (target: SaveTarget) => {
       if (state.output === null) {
         return;
       }
-      attemptSave(target, state.output);
+      void attemptSave(target, state.output);
     },
     [attemptSave, state.output],
   );
 
-  const handleSavePhotos = useCallback(() => handleSave('photos'), [handleSave]);
-  const handleSaveFolder = useCallback(() => handleSave('folder'), [handleSave]);
+  const handleSaveSubtitles = useCallback(() => {
+    if (subtitles.extractionOutput === null) {
+      return;
+    }
+    void attemptSubtitleSave('folder', subtitles.extractionOutput);
+  }, [attemptSubtitleSave, subtitles.extractionOutput]);
 
   const handleChoose = useCallback(async () => {
     if (working.current) {
@@ -172,6 +213,7 @@ export function ConversionScreen(): React.JSX.Element {
       cancelSignal.current = { cancelled: false };
       // A new source starts a new job, so the previous result's save state goes too.
       saveDispatch({ type: 'save/reset' });
+      subtitleSaveDispatch({ type: 'save/reset' });
       // Tracks and sidecars belong to the file they were chosen for, not to the app.
       subtitleDispatch({ type: 'subtitles/reset' });
       setSelectedTrackIndex(null);
@@ -251,6 +293,9 @@ export function ConversionScreen(): React.JSX.Element {
 
   const handleSelectSubtitleFormat = useCallback((format: SubtitleFormat) => {
     subtitleDispatch({ type: 'extract/formatSelected', format });
+    // The previous file was written in the old format, so its copy no longer
+    // describes what the panel shows.
+    subtitleSaveDispatch({ type: 'save/reset' });
   }, []);
 
   const handleSelectTrack = useCallback((streamIndex: number) => {
@@ -272,6 +317,9 @@ export function ConversionScreen(): React.JSX.Element {
 
     working.current = true;
     try {
+      // A new extraction writes a new file, so the previous copy's destination
+      // must not be shown against it.
+      subtitleSaveDispatch({ type: 'save/reset' });
       await extractSubtitles({
         sourcePath: source.path,
         sourceName: source.name,
@@ -388,6 +436,7 @@ export function ConversionScreen(): React.JSX.Element {
             <SubtitlePanel
               availability={subtitleAvailability}
               state={subtitles}
+              saveState={subtitleSaveState}
               tracks={subtitleTracks}
               selectedTrackIndex={selectedTrackIndex}
               disabled={busy}
@@ -396,6 +445,7 @@ export function ConversionScreen(): React.JSX.Element {
               onClear={handleClearSidecar}
               onSelectFormat={handleSelectSubtitleFormat}
               onExtract={handleExtract}
+              onSaveSubtitles={handleSaveSubtitles}
             />
           ) : null}
 
@@ -424,11 +474,7 @@ export function ConversionScreen(): React.JSX.Element {
               <Text style={styles.path} allowFontScaling selectable>
                 {state.output.path}
               </Text>
-              <SavePanel
-                state={saveState}
-                onSavePhotos={handleSavePhotos}
-                onSaveFolder={handleSaveFolder}
-              />
+              <SavePanel state={saveState} onSave={handleSave} />
             </View>
           ) : null}
 
