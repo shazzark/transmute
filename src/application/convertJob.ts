@@ -9,15 +9,14 @@
 import type { Failure } from '../domain/errors';
 import type { MediaSummary } from '../domain/probe';
 import { DEFAULT_PRESET_ID, type PresetId } from '../domain/presets';
+import type { OutputFile, SourceFile } from '../domain/mediaFiles';
 
-export interface SourceFile {
-  /** Plain filesystem path in the app cache; the picker already copied the file. */
-  readonly path: string;
-  /** Display name as the provider reported it. */
-  readonly name: string;
-  readonly sizeBytes: number | null;
-  readonly mimeType: string | null;
-}
+/**
+ * Re-exported so the many call sites that already import the file shapes from
+ * here keep working: the shapes moved to the domain when the queue needed them,
+ * and the domain may not import from this layer.
+ */
+export type { OutputFile, SourceFile } from '../domain/mediaFiles';
 
 export type JobStatus =
   | 'idle'
@@ -28,11 +27,6 @@ export type JobStatus =
   | 'done'
   | 'failed'
   | 'cancelled';
-
-export interface OutputFile {
-  readonly name: string;
-  readonly path: string;
-}
 
 export interface JobState {
   readonly status: JobStatus;

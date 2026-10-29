@@ -174,6 +174,24 @@ export function describePickFailure(error: unknown): Failure {
   };
 }
 
+/**
+ * A failure the code did not anticipate: an exception escaping the pipeline.
+ *
+ * The batch needs this because a row that throws must still leave a terminal
+ * state with a reason attached; an exception with no message is not worth
+ * showing, so the detail appears only when there is something in it.
+ */
+export function describeUnexpectedFailure(error: unknown): Failure {
+  const message = error instanceof Error && error.message ? error.message : '';
+  return {
+    code: 'engine-failed',
+    title: 'Conversion failed',
+    message: 'The app could not finish this conversion.',
+    recovery: 'Try again, or pick a different file.',
+    ...(message ? { detail: message } : {}),
+  };
+}
+
 /** No encoder for the preset, which is a build capability gap, not a user mistake. */
 export function describeMissingEncoder(candidates: readonly string[]): Failure {
   return {

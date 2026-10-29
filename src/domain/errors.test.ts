@@ -6,6 +6,7 @@ import {
   describePickFailure,
   describeProbeFailure,
   describeSourceTooSmall,
+  describeUnexpectedFailure,
   lastMeaningfulLine,
   type EngineOutcome,
 } from './errors';
@@ -94,6 +95,23 @@ describe('other failures', () => {
 
     expect(failure.code).toBe('unsupported-source');
     expect(failure.recovery.length).toBeGreaterThan(0);
+  });
+
+  it('turns an exception into a row failure with a next step', () => {
+    const failure = describeUnexpectedFailure(new Error('bridge exploded'));
+
+    expect(failure.code).toBe('engine-failed');
+    expect(failure.title.length).toBeGreaterThan(0);
+    expect(failure.recovery.length).toBeGreaterThan(0);
+    expect(failure.detail).toBe('bridge exploded');
+  });
+
+  it('does not invent a detail for a throw with no message', () => {
+    // A round-tripped object or a bare `throw` has nothing worth showing; the
+    // failure still has to be reported, so only the detail is dropped.
+    expect(describeUnexpectedFailure({}).detail).toBeUndefined();
+    expect(describeUnexpectedFailure(new Error('')).detail).toBeUndefined();
+    expect(describeUnexpectedFailure('nope').detail).toBeUndefined();
   });
 
   it('names the encoders the build was missing', () => {
