@@ -167,6 +167,8 @@ Dependencies: M2 depends on M1; M3 depends on M2 (a service is only worth adding
 
 ### Phase 7 â€” Hardening and release readiness
 
+**Current status:** Existing contrast tests, accessibility labels, license notices, and an in-app notice summary are present. The line-by-line native library license audit, TalkBack/200% scaling review, device E2E, release APK build and size record, and merged release-manifest permission check are not complete. Native build is blocked because the required JDK 17 toolchain cannot be downloaded in this environment. Phase 7 is incomplete; this app is not release-ready.
+
 - **Objective:** Make the app defensible: accessible, licensed, measured, and reproducible.
 - **Scope:** Complete the error taxonomy; TalkBack pass and 200% scaling fixes; token-contrast test wired into the suite; licence audit and in-app notice screen; release build for `arm64-v8a` and `x86_64` with recorded sizes; E2E flow (Maestro or Detox) for pick â†’ convert â†’ save plus cancel; README rewritten to match verified capability; `Readme.md`'s unverified claims corrected. **Excluded:** CI pipeline, store listing assets, analytics, localization, light theme.
 - **Dependencies:** Phases 1â€“6 as applicable to shipped features; O-4 (licence audit), O-5 (E2E tool).
