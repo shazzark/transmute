@@ -231,6 +231,19 @@ describe('cancelling', () => {
     const once = run(queueOf('a.mp4'), { type: 'queue/cancelled', id: 'job-1' });
     expect(queueReducer(once, { type: 'queue/cancelled', id: 'job-1' })).toBe(once);
   });
+
+  it('removes only queued rows so the runner skips them permanently', () => {
+    const state = queueOf('a.mp4', 'b.mp4');
+    const removed = queueReducer(state, { type: 'queue/removed', id: 'job-1' });
+    expect(removed.jobs.map((job) => job.id)).toEqual(['job-2']);
+    expect(nextQueuedJob(removed)?.id).toBe('job-2');
+    expect(queueReducer(removed, { type: 'queue/removed', id: 'job-2' }).jobs).toEqual([]);
+  });
+
+  it('does not remove a row after the runner has claimed it', () => {
+    const running = run(queueOf('a.mp4'), { type: 'queue/started', id: 'job-1' });
+    expect(queueReducer(running, { type: 'queue/removed', id: 'job-1' })).toBe(running);
+  });
 });
 
 describe('retrying', () => {

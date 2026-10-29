@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
@@ -56,6 +57,13 @@ class TransmuteProgressService : Service() {
     return START_NOT_STICKY
   }
 
+  /** Android 15+ grants dataSync work six background hours, then requires a prompt stop. */
+  override fun onTimeout(startId: Int, fgsType: Int) {
+    sendBroadcast(Intent(ACTION_TIMEOUT_EVENT).setPackage(packageName))
+    stopForegroundCompat()
+    stopSelf(startId)
+  }
+
   private fun startForegroundCompat(notification: Notification) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
       startForeground(
@@ -81,6 +89,7 @@ class TransmuteProgressService : Service() {
     const val ACTION_CANCEL = "expo.modules.transmutebackground.CANCEL"
     const val ACTION_STOP = "expo.modules.transmutebackground.STOP"
     const val ACTION_CANCEL_EVENT = "expo.modules.transmutebackground.CANCEL_EVENT"
+    const val ACTION_TIMEOUT_EVENT = "expo.modules.transmutebackground.TIMEOUT_EVENT"
 
     const val EXTRA_TITLE = "title"
     const val EXTRA_TEXT = "text"
@@ -124,8 +133,12 @@ class TransmuteProgressService : Service() {
         PendingIntent.getActivity(
           context,
           REQUEST_OPEN,
-          context.packageManager.getLaunchIntentForPackage(context.packageName)
-            ?: Intent(Intent.ACTION_MAIN),
+          (context.packageManager.getLaunchIntentForPackage(context.packageName)
+            ?: Intent(Intent.ACTION_MAIN)).apply {
+            action = Intent.ACTION_VIEW
+            data = Uri.parse("transmute://results")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+          },
           PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
       val cancel =

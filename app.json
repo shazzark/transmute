@@ -2,6 +2,7 @@
   "expo": {
     "name": "Transmute",
     "slug": "transmute",
+    "scheme": "transmute",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -20,7 +21,8 @@
       ],
       "blockedPermissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED"
       ],
       "adaptiveIcon": {
         "backgroundColor": "#0E1116",
@@ -34,6 +36,13 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "enableRemoteNotifications": false
+        }
+      ],
       "munim-ffmpeg",
       "./plugins/withReleaseNoInternet",
       [
@@ -44,7 +53,9 @@
           "isAccessMediaLocationEnabled": false,
           "granularPermissions": []
         }
-      ]
+      ],
+      "expo-router",
+      "expo-status-bar"
     ]
   }
 }

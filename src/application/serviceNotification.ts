@@ -23,6 +23,8 @@ export interface ForegroundPorts {
   hide(): Promise<void>;
   /** Subscribes to the notification's Cancel action; resolves to the unsubscribe. */
   onCancel(listener: () => void): () => void;
+  /** Subscribes to Android stopping a timed-out dataSync service. */
+  onTimeout(listener: () => void): () => void;
 }
 
 export interface NotificationPublisher {

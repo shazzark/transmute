@@ -22,7 +22,7 @@ interface BackgroundNativeModule {
     readonly percent: number;
   }): Promise<boolean>;
   hide(): Promise<void>;
-  addListener(event: 'onCancel', listener: () => void): EventSubscription;
+  addListener(event: 'onCancel' | 'onTimeout', listener: () => void): EventSubscription;
 }
 
 const MODULE_NAME = 'TransmuteBackground';
@@ -79,6 +79,12 @@ export const foregroundPorts: ForegroundPorts = {
       return () => {};
     }
     const subscription = module.addListener('onCancel', listener);
+    return () => subscription.remove();
+  },
+  onTimeout(listener: () => void): () => void {
+    const module = nativeModule();
+    if (module === null) return () => {};
+    const subscription = module.addListener('onTimeout', listener);
     return () => subscription.remove();
   },
 };

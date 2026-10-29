@@ -71,6 +71,7 @@ export type QueueAction =
   | { readonly type: 'queue/failed'; readonly id: string; readonly failure: Failure }
   | { readonly type: 'queue/cancelRequested'; readonly id: string }
   | { readonly type: 'queue/cancelled'; readonly id: string }
+  | { readonly type: 'queue/removed'; readonly id: string }
   | { readonly type: 'queue/retried'; readonly id: string }
   | { readonly type: 'queue/cancelAll' }
   | { readonly type: 'queue/cleared' }
@@ -228,6 +229,11 @@ export function queueReducer(state: QueueState, action: QueueAction): QueueState
             }
           : job,
       );
+
+    case 'queue/removed':
+      return state.jobs.some((job) => job.id === action.id && job.status === 'queued')
+        ? { ...state, jobs: state.jobs.filter((job) => job.id !== action.id) }
+        : state;
 
     case 'queue/retried':
       return replace(state, action.id, (job) =>

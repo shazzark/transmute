@@ -106,11 +106,11 @@ function JobRow({
       <View style={styles.actions}>
         {isCancellable(job) ? (
           <SecondaryButton
-            label={job.cancelRequested ? 'Cancelling…' : 'Cancel'}
+            label={job.status === 'queued' ? 'Remove' : job.cancelRequested ? 'Cancelling…' : 'Cancel'}
             onPress={onCancel}
             disabled={disabled || job.cancelRequested}
             destructive
-            accessibilityLabel={`Cancel ${job.source.name}`}
+            accessibilityLabel={job.status === 'queued' ? `Remove ${job.source.name} from the queue` : `Cancel ${job.source.name}`}
           />
         ) : null}
         {canRetry(job) ? (

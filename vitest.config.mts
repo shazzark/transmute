@@ -5,7 +5,7 @@ export default defineConfig({
     // The domain and application layers are deliberately Node-clean (TR-21), so
     // no React Native or jsdom environment is needed or wanted.
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     reporters: 'default',
   },
 });

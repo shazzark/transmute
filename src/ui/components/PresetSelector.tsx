@@ -13,6 +13,8 @@ export interface PresetSelectorProps {
    * An unknown build leaves every tile tappable; a known gap disables one.
    */
   buildEncoders?: readonly string[] | null;
+  inputHasVideo?: boolean | null;
+  inputHasAudio?: boolean | null;
   disabled?: boolean;
 }
 
@@ -26,23 +28,38 @@ export function PresetSelector({
   selectedId,
   onSelect,
   buildEncoders = null,
+  inputHasVideo = null,
+  inputHasAudio = null,
   disabled = false,
 }: PresetSelectorProps): React.JSX.Element {
   return (
-    <View style={styles.grid} accessibilityRole="radiogroup">
-      {PRESETS.map((preset) => {
-        const availability = resolveAvailability(preset, buildEncoders);
-        return (
-          <PresetTile
-            key={preset.id}
-            preset={preset}
-            availability={availability}
-            selected={preset.id === selectedId}
-            disabled={disabled || !availability.available}
-            onSelect={onSelect}
-          />
-        );
-      })}
+    <View style={styles.groups} accessibilityRole="radiogroup">
+      {([
+        ['video', 'Video Formats'],
+        ['audio', 'Audio Formats'],
+      ] as const).map(([kind, label]) => (
+        <View key={kind} style={styles.group}>
+          <Text style={styles.groupLabel} accessibilityRole="header">{label}</Text>
+          <View style={styles.grid}>
+            {PRESETS.filter((preset) => preset.kind === kind).map((preset) => {
+              const availability = resolveAvailability(preset, buildEncoders, {
+                hasVideo: inputHasVideo,
+                hasAudio: inputHasAudio,
+              });
+              return (
+                <PresetTile
+                  key={preset.id}
+                  preset={preset}
+                  availability={availability}
+                  selected={preset.id === selectedId}
+                  disabled={disabled || !availability.available}
+                  onSelect={onSelect}
+                />
+              );
+            })}
+          </View>
+        </View>
+      ))}
     </View>
   );
 }
@@ -114,6 +131,19 @@ function PresetTile({
 }
 
 const styles = StyleSheet.create({
+  groups: {
+    gap: spacing.md,
+  },
+  group: {
+    gap: spacing.sm,
+  },
+  groupLabel: {
+    color: color.textSecondary,
+    fontSize: type.label.fontSize,
+    lineHeight: type.label.lineHeight,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

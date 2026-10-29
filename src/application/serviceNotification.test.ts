@@ -82,6 +82,7 @@ function fakePorts(overrides: Partial<ForegroundPorts> = {}): {
     show,
     hide,
     onCancel: () => () => {},
+    onTimeout: () => () => {},
     ...overrides,
   };
 
@@ -150,6 +151,7 @@ describe('createNotificationPublisher', () => {
       show,
       hide: async () => {},
       onCancel: () => () => {},
+      onTimeout: () => () => {},
     });
 
     await publisher.publish(CONTENT);

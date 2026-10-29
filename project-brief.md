@@ -2,9 +2,9 @@
 
 > **Purpose:** State why Transmute exists, who it serves, and the result it should create. **Related:** `mvp-scope.md` narrows the first release; `prd.md` details behavior; `implementation-plan.md` sequences delivery.
 >
-> **Document rules:** Every claim carries a label — `[Confirmed]` (observed in this repository or measured in this environment), `[Inferred]` (reasoned from confirmed facts, not verified), `[Recommended]` (a proposal awaiting the owner's approval), `[Open question]` (unresolved, possibly blocking). **Nothing in this document is implemented:** the repository contains a README and no application code. Keep status `Draft` until the owner approves it.
+> **Document rules:** Every claim carries a label — `[Confirmed]` (observed in this repository or measured in this environment), `[Inferred]` (reasoned from confirmed facts, not verified), `[Recommended]` (a proposal awaiting the owner's approval), `[Open question]` (unresolved, possibly blocking). This brief records product intent; implementation state and evidence are tracked in `implementation-plan.md` and `tasks.md`.
 
-**Status:** Draft | **Owner:** `shazzark` (repository owner, per the README clone URL — [Confirmed]) | **Last updated:** 2026-10-27
+**Status:** Approved for implementation by owner instruction (2026-10-29) | **Owner:** `shazzark` (repository owner, per the README clone URL — [Confirmed]) | **Last updated:** 2026-10-29
 
 ## Problem and context
 
@@ -76,5 +76,5 @@ Observable evidence, with no invented thresholds (no performance target is set u
 
 ## Approval
 
-Status `Draft` v0.1, 2026-10-27. No approval recorded. Approval of this brief authorizes planning only — it does not authorize scaffolding, dependency installation, or implementation; `implementation-plan.md` governs that handoff.
+Change record: drafted 2026-10-27; implementation scope authorized by the owner on 2026-10-29. The original draft-only handoff is superseded. Remaining uncertainty is product validation and device evidence, not authorization.
 

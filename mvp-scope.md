@@ -2,9 +2,9 @@
 
 > **Purpose:** Define the smallest release that is genuinely useful and can be evaluated. **Related:** `project-brief.md` gives the why; `prd.md` defines selected behavior; `trd.md` states testable technical requirements; `implementation-plan.md` sequences the work.
 >
-> **Document rules:** `[Confirmed]`, `[Inferred]`, `[Recommended]`, `[Open question]` as defined in `project-brief.md`. Everything below is **planned** — no capability exists in code today. A proposed priority is not an approved priority.
+> **Document rules:** `[Confirmed]`, `[Inferred]`, `[Recommended]`, `[Open question]` as defined in `project-brief.md`. This scope was authorized for implementation on 2026-10-29; the phase summary in `implementation-plan.md` distinguishes implementation from verified acceptance.
 
-**Status:** Draft | **Owner:** `shazzark` (repository owner) | **Release/cut:** `v0.1-mvp`
+**Status:** Authorized for implementation; acceptance incomplete | **Owner:** `shazzark` (repository owner) | **Release/cut:** `v0.1-mvp`
 
 ## MVP outcome
 
@@ -72,5 +72,5 @@ None. There is no existing product, stored data, or installed base, so no migrat
 
 ## Approval
 
-Approver: `shazzark` (repository owner). Approved scope/version: none yet — this is `v0.1-mvp`, Draft. Conditions: O-1 is answered (physical device over USB debugging, emulator out of scope); O-2, O-3, and O-6 must still be answered before Phase 1 can start, because each changes what Phase 1 must prove. A planned MVP is not user-validated until representative users actually try it.
+Approval: `shazzark` (repository owner) authorized the described work on 2026-10-29. Historical O-1/O-2/O-3/O-6 answers remain above. The MVP is not user-validated, and phase acceptance remains open where implementation, automated, or device evidence is incomplete.
 

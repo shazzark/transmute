@@ -9,6 +9,7 @@
 import { Directory, File, Paths } from 'expo-file-system';
 
 import type { ConversionPorts } from '../application/runConversion';
+import type { InterruptedRecoveryPorts } from '../application/recoverInterrupted';
 
 export type JobFilePorts = Pick<
   ConversionPorts,
@@ -52,3 +53,48 @@ export function createJobFilePorts(): JobFilePorts {
     },
   };
 }
+
+const cacheJobs = new Directory(Paths.cache, 'transmute');
+const recoveryDirectory = new Directory(Paths.document, 'transmute');
+const recoveryMarker = new File(recoveryDirectory, 'active-job');
+
+/** Stores no media metadata: it only marks that the cache may contain partial work. */
+export async function markConversionRunning(): Promise<void> {
+  recoveryDirectory.create({ intermediates: true, idempotent: true });
+  recoveryMarker.write('active');
+}
+
+export async function clearConversionMarker(): Promise<void> {
+  if (recoveryMarker.exists) recoveryMarker.delete();
+}
+
+/** Deletes only a picker-created file inside the app cache, never a user URI. */
+export async function removePickedSource(path: string): Promise<void> {
+  const file = new File(path);
+  const cachePrefix = `${Paths.cache.uri.replace(/\/+$/, '')}/`;
+  if (!file.uri.startsWith(cachePrefix) || !file.exists) return;
+  file.delete();
+}
+
+/** Removes one job output directory after its row is explicitly cleared. */
+export async function removeJobOutput(path: string): Promise<void> {
+  const file = new File(path);
+  const jobsPrefix = `${cacheJobs.uri.replace(/\/+$/, '')}/`;
+  if (!file.uri.startsWith(jobsPrefix)) return;
+  const parentUri = file.uri.slice(0, file.uri.lastIndexOf('/'));
+  const directory = new Directory(parentUri);
+  if (directory.exists) directory.delete();
+}
+
+export const interruptedRecoveryPorts: InterruptedRecoveryPorts = {
+  async hasActiveMarker(): Promise<boolean> {
+    return recoveryMarker.exists;
+  },
+  async removePartialOutputs(): Promise<void> {
+    if (!cacheJobs.exists) return;
+    for (const entry of cacheJobs.list()) {
+      if (entry instanceof Directory) entry.delete();
+    }
+  },
+  clearActiveMarker: clearConversionMarker,
+};

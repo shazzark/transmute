@@ -116,16 +116,25 @@ export interface PresetAvailability {
  * Capability detection for the format grid.
  *
  * `availableEncoders` is the engine's own `-encoders` report, or `null` until it
- * has been read. An unknown build must not disable everything at first paint, so
- * the tile stays tappable and a missing codec surfaces as a named failure
- * instead of a dead grid.
+ * has been read. Unknown capability stays disabled with an explanation; the UI
+ * never invites a conversion whose support has not been established.
  */
 export function resolveAvailability(
   preset: Preset,
   availableEncoders: readonly string[] | null,
+  inputStreams: { readonly hasVideo: boolean | null; readonly hasAudio: boolean | null } = {
+    hasVideo: null,
+    hasAudio: null,
+  },
 ): PresetAvailability {
   if (availableEncoders === null) {
-    return { available: true, reason: '' };
+    return { available: false, reason: 'This build’s encoder support could not be checked.' };
+  }
+  if (preset.kind === 'video' && inputStreams.hasVideo === false) {
+    return { available: false, reason: 'This input has no video stream.' };
+  }
+  if (preset.kind === 'audio' && inputStreams.hasAudio === false) {
+    return { available: false, reason: 'This input has no audio stream.' };
   }
 
   const choice =

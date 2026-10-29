@@ -93,8 +93,11 @@ describe('chooseAudioEncoder', () => {
 });
 
 describe('resolveAvailability', () => {
-  it('keeps every tile tappable while the build is unknown', () => {
-    expect(resolveAvailability(getPreset('webm'), null)).toEqual({ available: true, reason: '' });
+  it('keeps formats disabled with a reason while the build is unknown', () => {
+    expect(resolveAvailability(getPreset('webm'), null)).toEqual({
+      available: false,
+      reason: 'This build’s encoder support could not be checked.',
+    });
   });
 
   it('enables a format whose encoder the build reports', () => {
@@ -125,6 +128,18 @@ describe('resolveAvailability', () => {
     expect(resolveAvailability(getPreset('mp3'), build).available).toBe(true);
     expect(resolveAvailability(getPreset('wav'), build).available).toBe(false);
     expect(resolveAvailability(getPreset('webm'), build).available).toBe(false);
+  });
+
+  it('disables formats when the selected input lacks the required stream', () => {
+    const build = ['h264_mediacodec', 'aac', 'libmp3lame'];
+    expect(resolveAvailability(getPreset('mp4'), build, { hasVideo: false, hasAudio: true })).toEqual({
+      available: false,
+      reason: 'This input has no video stream.',
+    });
+    expect(resolveAvailability(getPreset('mp3'), build, { hasVideo: true, hasAudio: false })).toEqual({
+      available: false,
+      reason: 'This input has no audio stream.',
+    });
   });
 });
 

@@ -31,9 +31,12 @@ class TransmuteBackgroundModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("TransmuteBackground")
 
-    Events("onCancel")
+    Events("onCancel", "onTimeout")
 
-    OnCreate { registerCancelReceiver() }
+    OnCreate {
+      appContext.reactContext?.let { TransmuteProgressService.ensureChannel(it) }
+      registerCancelReceiver()
+    }
     OnDestroy { unregisterCancelReceiver() }
 
     Function("notificationsEnabled") { granted() }
@@ -106,6 +109,8 @@ class TransmuteBackgroundModule : Module() {
         override fun onReceive(context: Context?, intent: Intent?) {
           if (intent?.action == TransmuteProgressService.ACTION_CANCEL_EVENT) {
             sendEvent("onCancel", emptyMap<String, Any?>())
+          } else if (intent?.action == TransmuteProgressService.ACTION_TIMEOUT_EVENT) {
+            sendEvent("onTimeout", emptyMap<String, Any?>())
           }
         }
       }
