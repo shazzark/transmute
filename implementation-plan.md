@@ -133,6 +133,8 @@ Dependencies: M2 depends on M1; M3 depends on M2 (a service is only worth adding
 
 ### Phase 5 â€” Format matrix and audio extraction
 
+**Current status:** Preset catalogue, runtime encoder/input checks, visible unavailable reasons, audio extraction, validation, command generation, and support matrix are implemented. Preset/encoder/probe/command tests pass. Real device conversions and `ffprobe`/playback remain unverified for all enabled formats except historical MP4 evidence, which predates the current route. Phase 5 is incomplete.
+
 - **Objective:** Deliver the advertised formats the build actually supports, without touching UI logic.
 - **Scope:** Presets for MKV, WEBM, M4V/MOV containers and audio extraction to MP3, AAC, WAV, FLAC, OGG/OPUS; capability detection for codecs that are absent from the build; preset-aware validation (e.g. no audio stream â†’ extraction disabled); documented support matrix. **Excluded:** subtitles, hardware encoders, size targeting, remux-only fast path.
 - **Dependencies:** Phase 1 argv builder and preset model; Phase 2 pipeline; knowledge of which libraries the bundled `libmunimffmpeg.so` contains (TR-27 audit input).
@@ -147,6 +149,8 @@ Dependencies: M2 depends on M1; M3 depends on M2 (a service is only worth adding
 - **Completion conditions:** matrix complete and truthful, tests per preset, owner approval.
 
 ### Phase 6 â€” Subtitles: embed and extract
+
+**Current status:** Sidecar validation, subtitle embedding/extraction paths, naming, and per-container codec rules are implemented and covered by automated tests. Device track listings and player behavior have not been verified; Phase 6 is incomplete.
 
 - **Objective:** Handle subtitle tracks, the remaining advertised feature.
 - **Scope:** Choose a sidecar subtitle file (SRT/ASS/VTT) and embed it into the selected container; list embedded subtitle tracks and extract one to SRT or VTT; validation of the sidecar before starting; naming and collision rules reused unchanged. **Excluded:** styling/burn-in of subtitles into the picture (a different, much slower operation), automatic language detection, subtitle editing.
