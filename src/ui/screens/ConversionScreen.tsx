@@ -2,16 +2,25 @@ import React, { useCallback, useEffect, useReducer, useRef, useState } from 'rea
 import { AccessibilityInfo, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { canConvert, initialJobState, isBusy, jobReducer, type OutputFile } from '../../application/convertJob';
+import { extractSubtitles } from '../../application/extractSubtitles';
 import { prepareSource, runConversion, type CancelSignal } from '../../application/runConversion';
 import { saveOutput } from '../../application/saveOutput';
+import { chooseSidecar } from '../../application/sidecar';
 import { resolveAvailability } from '../../domain/encoders';
 import { describePickFailure } from '../../domain/errors';
 import { baseNameOf } from '../../domain/naming';
 import { getPreset, type PresetId } from '../../domain/presets';
 import { initialSaveState, savedLocation, saveReducer, targetLabel, type SaveTarget } from '../../domain/saveIntent';
+import {
+  initialSubtitleState,
+  isSubtitleBusy,
+  subtitleReducer,
+} from '../../domain/subtitleIntent';
+import { resolveSubtitleAvailability, type SubtitleFormat } from '../../domain/subtitles';
 import { cancelActiveConversion, enginePorts } from '../../native/ffmpeg';
 import { pickSourceFile } from '../../native/documentPicker';
 import { savePorts } from '../../native/saveDestination';
+import { sidecarPorts } from '../../native/subtitlePicker';
 import { Banner } from '../components/Banner';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ConversionSummary } from '../components/ConversionSummary';
@@ -20,6 +29,7 @@ import { PrimaryButton } from '../components/PrimaryButton';
 import { ProgressPanel } from '../components/ProgressPanel';
 import { SavePanel } from '../components/SavePanel';
 import { SecondaryButton } from '../components/SecondaryButton';
+import { SubtitlePanel } from '../components/SubtitlePanel';
 import { VideoPreviewCard, type PreviewState } from '../components/VideoPreviewCard';
 import { color, layout, spacing, type } from '../tokens';
 
@@ -35,6 +45,9 @@ import { color, layout, spacing, type } from '../tokens';
 export function ConversionScreen(): React.JSX.Element {
   const [state, dispatch] = useReducer(jobReducer, initialJobState);
   const [saveState, saveDispatch] = useReducer(saveReducer, initialSaveState);
+  const [subtitles, subtitleDispatch] = useReducer(subtitleReducer, initialSubtitleState);
+  /** Which embedded track to extract; `null` means the first one. */
+  const [selectedTrackIndex, setSelectedTrackIndex] = useState<number | null>(null);
   const [confirmVisible, setConfirmVisible] = useState(false);
   /**
    * Encoders the bundled engine reported, or `null` while the list is unknown.
@@ -50,6 +63,11 @@ export function ConversionScreen(): React.JSX.Element {
   const preset = getPreset(state.presetId);
   const availability = resolveAvailability(preset, buildEncoders);
   const converting = state.status === 'converting' || state.status === 'cancelling';
+  const subtitleAvailability = resolveSubtitleAvailability(preset, buildEncoders);
+  const subtitleTracks = state.summary?.subtitleTracks ?? [];
+  const subtitleBusy = isSubtitleBusy(subtitles);
+  /** A sidecar cannot be muxed into a container with no subtitle stream. */
+  const sidecarBlocksFormat = subtitles.sidecar !== null && !subtitleAvailability.available;
 
   // One query per app run: the engine caches its own `-encoders` report.
   useEffect(() => {
@@ -93,6 +111,25 @@ export function ConversionScreen(): React.JSX.Element {
     }
   }, [saveState]);
 
+  // A rejected subtitle file says why before the job even starts (TR-20).
+  useEffect(() => {
+    if (subtitles.sidecarStatus === 'failed' && subtitles.sidecarFailure) {
+      AccessibilityInfo.announceForAccessibility(subtitles.sidecarFailure.message);
+    } else if (subtitles.sidecarStatus === 'ready' && subtitles.sidecar) {
+      AccessibilityInfo.announceForAccessibility(`Subtitle file ready: ${subtitles.sidecar.name}`);
+    }
+  }, [subtitles.sidecarStatus, subtitles.sidecar, subtitles.sidecarFailure]);
+
+  useEffect(() => {
+    if (subtitles.extractionStatus === 'done' && subtitles.extractionOutput) {
+      AccessibilityInfo.announceForAccessibility(
+        `Subtitles extracted to ${subtitles.extractionOutput.name}`,
+      );
+    } else if (subtitles.extractionStatus === 'failed' && subtitles.extractionFailure) {
+      AccessibilityInfo.announceForAccessibility(subtitles.extractionFailure.message);
+    }
+  }, [subtitles.extractionStatus, subtitles.extractionOutput, subtitles.extractionFailure]);
+
   /** Copies one finished output to one destination; never touches the job state. */
   const attemptSave = useCallback(async (target: SaveTarget, output: OutputFile) => {
     await saveOutput({
@@ -135,6 +172,9 @@ export function ConversionScreen(): React.JSX.Element {
       cancelSignal.current = { cancelled: false };
       // A new source starts a new job, so the previous result's save state goes too.
       saveDispatch({ type: 'save/reset' });
+      // Tracks and sidecars belong to the file they were chosen for, not to the app.
+      subtitleDispatch({ type: 'subtitles/reset' });
+      setSelectedTrackIndex(null);
       await prepareSource({
         source: outcome.source,
         preset: getPreset(state.presetId),
@@ -172,6 +212,8 @@ export function ConversionScreen(): React.JSX.Element {
               },
             }
           : {}),
+        // The muxer codec comes from the container, so the sidecar travels as is.
+        ...(subtitles.sidecar !== null ? { sidecar: subtitles.sidecar } : {}),
       });
 
       // The conversion is finished at this point, so the copy out of the cache
@@ -185,11 +227,63 @@ export function ConversionScreen(): React.JSX.Element {
     } finally {
       working.current = false;
     }
-  }, [attemptSave, state.source, state.summary, state.presetId, state.encoderName]);
+  }, [attemptSave, state.source, state.summary, state.presetId, state.encoderName, subtitles.sidecar]);
 
   const handleSelectPreset = useCallback((presetId: PresetId) => {
     dispatch({ type: 'preset/selected', presetId });
   }, []);
+
+  const handleChooseSidecar = useCallback(async () => {
+    if (working.current) {
+      return;
+    }
+    working.current = true;
+    try {
+      await chooseSidecar({ ports: sidecarPorts, dispatch: subtitleDispatch });
+    } finally {
+      working.current = false;
+    }
+  }, []);
+
+  const handleClearSidecar = useCallback(() => {
+    subtitleDispatch({ type: 'sidecar/cleared' });
+  }, []);
+
+  const handleSelectSubtitleFormat = useCallback((format: SubtitleFormat) => {
+    subtitleDispatch({ type: 'extract/formatSelected', format });
+  }, []);
+
+  const handleSelectTrack = useCallback((streamIndex: number) => {
+    setSelectedTrackIndex(streamIndex);
+  }, []);
+
+  const handleExtract = useCallback(async () => {
+    const source = state.source;
+    const summary = state.summary;
+    // The extract buttons are not rendered without a probed source, so this is a
+    // guard for the frame between a source change and the next render.
+    if (source === null || summary === null || working.current) {
+      return;
+    }
+    const streamIndex = selectedTrackIndex ?? summary.subtitleTracks[0]?.streamIndex ?? null;
+    if (streamIndex === null) {
+      return;
+    }
+
+    working.current = true;
+    try {
+      await extractSubtitles({
+        sourcePath: source.path,
+        sourceName: source.name,
+        streamIndex,
+        format: subtitles.extractionFormat,
+        ports: enginePorts,
+        dispatch: subtitleDispatch,
+      });
+    } finally {
+      working.current = false;
+    }
+  }, [state.source, state.summary, selectedTrackIndex, subtitles.extractionFormat]);
 
   const handleConfirmCancel = useCallback(() => {
     setConfirmVisible(false);
@@ -214,7 +308,9 @@ export function ConversionScreen(): React.JSX.Element {
         ? 'This file cannot be converted.'
         : !availability.available
           ? `${preset.label} is not available in this build.`
-          : undefined;
+          : sidecarBlocksFormat
+            ? `${subtitleAvailability.reason} Remove the subtitle file to convert anyway.`
+            : undefined;
 
   return (
     <View style={styles.screen}>
@@ -238,14 +334,14 @@ export function ConversionScreen(): React.JSX.Element {
               <PrimaryButton
                 label="Select Video"
                 onPress={handleChoose}
-                disabled={busy}
+                disabled={busy || subtitleBusy}
                 accessibilityLabel="Select a video or audio file to convert"
               />
             ) : (
               <SecondaryButton
                 label="Select Video"
                 onPress={handleChoose}
-                disabled={busy}
+                disabled={busy || subtitleBusy}
                 accessibilityLabel={`Select a different file to replace ${state.source.name}`}
               />
             )}
@@ -266,7 +362,7 @@ export function ConversionScreen(): React.JSX.Element {
               selectedId={state.presetId}
               onSelect={handleSelectPreset}
               buildEncoders={buildEncoders}
-              disabled={busy}
+              disabled={busy || subtitleBusy}
             />
             {state.source === null ? (
               <Text style={styles.caption} allowFontScaling>
@@ -285,6 +381,21 @@ export function ConversionScreen(): React.JSX.Element {
               sourceName={state.source.name}
               summary={state.summary}
               preset={preset}
+            />
+          ) : null}
+
+          {state.source && state.summary ? (
+            <SubtitlePanel
+              availability={subtitleAvailability}
+              state={subtitles}
+              tracks={subtitleTracks}
+              selectedTrackIndex={selectedTrackIndex}
+              disabled={busy}
+              onSelectTrack={handleSelectTrack}
+              onChoose={handleChooseSidecar}
+              onClear={handleClearSidecar}
+              onSelectFormat={handleSelectSubtitleFormat}
+              onExtract={handleExtract}
             />
           ) : null}
 
@@ -356,7 +467,9 @@ export function ConversionScreen(): React.JSX.Element {
             <PrimaryButton
               label={`Convert to ${preset.label}`}
               onPress={handleConvert}
-              disabled={!canConvert(state) || busy || !availability.available}
+              disabled={
+                !canConvert(state) || busy || !availability.available || subtitleBusy || sidecarBlocksFormat
+              }
               disabledReason={convertDisabledReason}
               accessibilityLabel={`Convert ${state.source.name} to ${preset.label}`}
             />

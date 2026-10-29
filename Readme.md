@@ -4,7 +4,7 @@
 
 ## Status
 
-🚧 **Phase 1 in progress.** The app now picks a video, probes it with the bundled engine, converts it to MP4 (H.264 + AAC) on the device, and shows progress from FFmpeg's own statistics. The result stays in the app cache until Phase 2 adds saving to a folder the user chooses.
+🚧 **Phase 6 in progress.** The app picks a video, probes it with the bundled engine, converts it on the device to one of its output formats, saves the finished file to Photos or a folder the user chooses, and now handles subtitles: a SubRip sidecar can be embedded into the output, and an embedded subtitle track can be extracted to SRT or VTT.
 
 ## Features (target)
 
@@ -15,6 +15,23 @@
 - Batch conversion queue
 - Large file support (>1GB)
 - Background conversion with foreground service notification
+
+## Subtitle support
+
+Subtitles are handled as text tracks only — nothing is burned into the picture.
+
+- **Embed:** one sidecar at a time. Only `.srt` is accepted in this phase; the file is validated (timing lines, cue count, span) before the engine is asked to read it, so a malformed file is refused with a reason instead of producing a broken output.
+- **Extract:** any embedded text track can be copied out to `.srt` or `.vtt`. The written file stays in the app cache next to the conversion output.
+
+| Output format | Subtitle codec | What players do with it |
+|---|---|---|
+| MP4 | `mov_text` | VLC, mpv, and most desktop players show the track; some TV and gallery apps ignore it |
+| MOV | `mov_text` | QuickTime Player and VLC show the track |
+| MKV | `srt` | SubRip is kept unchanged, so most players offer track selection |
+| WEBM | `webvtt` | the text is converted; players that open WebM usually show the track |
+| MP3, M4A, WAV, FLAC, OGG, OPUS | — | audio-only: no subtitle stream exists, so a chosen sidecar is refused before the job starts |
+
+Not yet: ASS or VTT sidecars as input, subtitle styling, and burn-in.
 
 ## Tech Stack
 
