@@ -1,5 +1,5 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { type ReactNode } from 'react';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
 
 import {
   canRetry,
@@ -25,6 +25,8 @@ export interface QueuePanelProps {
   readonly onSelectJob: (job: QueueJob) => void;
   readonly onCancelAll: () => void;
   readonly onClearFinished: () => void;
+  readonly leadingContent?: ReactNode;
+  readonly trailingContent?: ReactNode;
 }
 
 const TONES: Record<QueueJob['status'], ProgressTone> = {
@@ -152,25 +154,34 @@ export function QueuePanel({
   onSelectJob,
   onCancelAll,
   onClearFinished,
+  leadingContent,
+  trailingContent,
 }: QueuePanelProps): React.JSX.Element {
   const counts = queueCounts(state);
   const canCancelAll = counts.queued > 0 || counts.converting > 0;
   const finished = counts.total - counts.queued - counts.converting;
 
   return (
-    <View style={styles.panel}>
-      <View style={styles.header}>
-        <Text style={styles.label} allowFontScaling accessibilityRole="header">
-          Queue
-        </Text>
-        <Text style={styles.summary} allowFontScaling>
-          {summaryLine(state)}
-        </Text>
-      </View>
-
-      {state.jobs.map((job) => (
+    <FlatList
+      style={styles.list}
+      contentContainerStyle={styles.panel}
+      data={state.jobs}
+      keyExtractor={(job) => job.id}
+      initialNumToRender={8}
+      maxToRenderPerBatch={8}
+      windowSize={7}
+      ListHeaderComponent={(
+        <>
+          {leadingContent}
+          <View style={styles.header}>
+            <Text style={styles.label} allowFontScaling accessibilityRole="header">Queue</Text>
+            <Text style={styles.summary} allowFontScaling>{summaryLine(state)}</Text>
+          </View>
+        </>
+      )}
+      ListEmptyComponent={<Text style={styles.summary}>The queue is empty.</Text>}
+      renderItem={({ item: job }) => (
         <JobRow
-          key={job.id}
           job={job}
           focused={job.id === focusId}
           disabled={disabled}
@@ -178,8 +189,9 @@ export function QueuePanel({
           onRetry={() => onRetryJob(job)}
           onSelect={() => onSelectJob(job)}
         />
-      ))}
-
+      )}
+      ListFooterComponent={(
+        <>
       <View style={styles.actions}>
         {canCancelAll ? (
           <SecondaryButton
@@ -199,13 +211,20 @@ export function QueuePanel({
           />
         ) : null}
       </View>
-    </View>
+          {trailingContent}
+        </>
+      )}
+    />
   );
 }
 
 const styles = StyleSheet.create({
   panel: {
     gap: spacing.sm,
+    padding: spacing.md,
+  },
+  list: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',

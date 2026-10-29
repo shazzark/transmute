@@ -13,14 +13,15 @@
 - [x] Configure Expo Router routes and keep the processing controller mounted above them.
 - [x] Add session-only results, file save/share actions, startup notification permission/channel setup, and completion notices.
 - [x] Add native `dataSync` timeout cancellation and notification deep-link intent.
-- [ ] Virtualize queue rows and prove 20-row responsiveness.
+- [x] Render queue jobs through a bounded-window `FlatList`; the 20-row configuration test passes.
+- [ ] Verify 20-row responsiveness on the device.
 - [x] Add rendered UI coverage proving the visible Convert button starts one runner despite rapid duplicate taps.
 - [ ] Add rendered navigation ownership and save/share lifecycle coverage.
 - [ ] Verify native builds/manifests, real device notifications/deep links/cancellation, conversions, and playback.
 - [ ] Complete format-by-format and subtitle-by-container device evidence.
 - [ ] Complete TalkBack/200% text, E2E, release artifact, and release-manifest gates.
 
-Current automated evidence: `npx tsc --noEmit`; `npx vitest run` (26 files, 388 tests); `npx expo config --type public`; `npx expo prebuild --platform android`. Device access is currently blocked because `adb` cannot create `\\.android` in this shell. Detailed phase evidence and exact remaining checks are in `implementation-plan.md`.
+Current automated evidence: `npx tsc --noEmit`; `npx vitest run` (27 files, 389 tests); `npx expo config --type public`; `npx expo prebuild --platform android`. Device access is currently blocked because `adb` cannot create `\\.android` in this shell. Detailed phase evidence and exact remaining checks are in `implementation-plan.md`.
 
 ## Phase objective and links
 

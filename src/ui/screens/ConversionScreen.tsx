@@ -819,6 +819,67 @@ export function ConversionScreen(): React.JSX.Element {
 
   return (
     <View style={styles.screen}>
+      {showQueue ? (
+        <QueuePanel
+          state={queue}
+          focusId={focusId}
+          disabled={saveState.status === 'saving'}
+          onCancelJob={handleCancelJob}
+          onRetryJob={handleRetryJob}
+          onSelectJob={handleSelectJob}
+          onCancelAll={handleCancelAll}
+          onClearFinished={handleClearFinished}
+          leadingContent={(
+            <View style={styles.inner}>
+              <View style={styles.header}>
+                <Text style={styles.title} allowFontScaling accessibilityRole="header">Transmute</Text>
+                <Text style={styles.subtitle} allowFontScaling>
+                  Convert videos into another format â€” or take out just the audio â€” on this device.
+                  Nothing is uploaded.
+                </Text>
+              </View>
+              <View style={styles.navigation} accessibilityRole="tablist">
+                {([
+                  ['/', 'Convert', showHome],
+                  ['/queue', `Queue${counts.queued + counts.converting ? ` (${counts.queued + counts.converting})` : ''}`, showQueue],
+                  ['/results', `Results${counts.complete ? ` (${counts.complete})` : ''}`, showResults],
+                ] as const).map(([path, label, selected]) => (
+                  <Pressable
+                    key={path}
+                    onPress={() => router.push(path as never)}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected }}
+                    style={[styles.navTab, selected && styles.navTabSelected]}
+                  >
+                    <Text style={[styles.navText, selected && styles.navTextSelected]}>{label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              {notificationNotice !== null ? (
+                <Banner variant="info" title="No progress notification" message={notificationNotice} />
+              ) : null}
+              {running !== null ? (
+                <ProgressPanel
+                  phaseLabel={`Converting ${positionOf(queue, running.id)} of ${queue.jobs.length} â€” ${running.source.name}`}
+                  percent={running.indeterminate ? null : running.progress}
+                  elapsedMs={running.elapsedMs}
+                  variant={running.indeterminate ? 'indeterminate' : 'determinate'}
+                />
+              ) : null}
+            </View>
+          )}
+          trailingContent={batchSummary !== null && running === null ? (
+            <Banner
+              variant={counts.failed > 0 ? 'warning' : counts.cancelled > 0 ? 'info' : 'success'}
+              title="Queue finished"
+              message={batchSummary}
+              {...(counts.failed > 0
+                ? { recovery: 'Tap Try again on a failed row to convert that file once more.' }
+                : {})}
+            />
+          ) : null}
+        />
+      ) : (
       <ScrollView contentContainerStyle={styles.content} style={styles.scroll}>
         <View style={styles.inner}>
           <View style={styles.header}>
@@ -1057,6 +1118,7 @@ export function ConversionScreen(): React.JSX.Element {
           ) : null}
         </View>
       </ScrollView>
+      )}
 
       {/* Without a file there is nothing to convert, so the action bar stays away. */}
       {showHome && queue.jobs.length > 0 ? (
