@@ -39,6 +39,25 @@ describe('describeEngineOutcome', () => {
     expect(failure?.recovery).toBeTruthy();
   });
 
+  it('maps the engine log from a real unreadable file to Unsupported file', () => {
+    // Captured 2026-10-29: `ffmpeg -i notes.txt` on FFmpeg 8.0 prints these
+    // lines, and the last one is what the Details expander shows.
+    const output = [
+      '[in#0 @ 0x000001ee69663e80] Error opening input: Invalid data found when processing input',
+      'Error opening input file /data/user/0/dev.transmute/cache/notes.txt.',
+      'Error opening input files: Invalid data found when processing input',
+    ].join('\n');
+
+    const failure = describeEngineOutcome(outcome({ returnCode: 1, output }));
+
+    expect(failure?.code).toBe('unsupported-source');
+    expect(failure?.title).toBe('Unsupported file');
+    expect(failure?.recovery).toContain('Choose a different file');
+    expect(failure?.detail).toBe(
+      'Exit code 1: Error opening input files: Invalid data found when processing input',
+    );
+  });
+
   it('keeps the exit code for an unmapped failure and never says just "Error"', () => {
     const failure = describeEngineOutcome(
       outcome({ returnCode: 42, output: 'frame=  120 fps=0.0\nsomething odd happened\n' }),

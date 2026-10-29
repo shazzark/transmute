@@ -318,6 +318,79 @@ describe('runConversion — failures', () => {
     expect(tracker.state.failure).toBeNull();
   });
 
+  it('cancels mid-conversion without claiming an output or leaving the job directory', async () => {
+    const convert = vi.fn(async (request: { onProgress: (ms: number) => void }) => {
+      // Two statistics land before the engine acknowledges the cancel, which is
+      // the state a user actually sees when they press Cancel during a job.
+      request.onProgress(2000);
+      request.onProgress(6000);
+      return {
+        success: false,
+        cancelled: true,
+        returnCode: 255,
+        output: 'Exiting normally, received signal 2.',
+      };
+    });
+    const { ports, removeDirectory } = makePorts({ convert });
+    const tracker = trackState();
+
+    const result = await runConversion({
+      source,
+      preset: getPreset('mp4'),
+      ports,
+      dispatch: tracker.dispatch,
+    });
+
+    expect(convert).toHaveBeenCalledTimes(1);
+    expect(result.status).toBe('cancelled');
+    expect(result.outputPath).toBeNull();
+    expect(result.failure).toBeNull();
+    // The partial output is gone: exactly one removal, of the whole job directory.
+    expect(removeDirectory).toHaveBeenCalledTimes(1);
+    expect(removeDirectory).toHaveBeenCalledWith('/cache/jobs/job-1');
+    expect(tracker.state.status).toBe('cancelled');
+    // Progress up to the cancel is kept as evidence; no output is claimed.
+    expect(tracker.state.progress).toBe(60);
+    expect(tracker.state.output).toBeNull();
+    expect(tracker.state.failure).toBeNull();
+  });
+
+  it('refuses an unreadable file before it creates a job directory', async () => {
+    // Captured 2026-10-29 from FFmpeg 8.0 given a plain-text file: the mapping
+    // is checked against the engine's own wording, not an invented string.
+    const engineLog = [
+      '[in#0 @ 0x000001ee69663e80] Error opening input: Invalid data found when processing input',
+      'Error opening input file /data/user/0/dev.transmute/cache/notes.txt.',
+      'Error opening input files: Invalid data found when processing input',
+    ].join('\n');
+
+    const createJobDirectory = vi.fn(async () => '/cache/jobs/job-1');
+    const { ports, convert } = makePorts({
+      createJobDirectory,
+      probe: async () => ({
+        ok: false,
+        outcome: { success: false, cancelled: false, returnCode: 1, output: engineLog },
+      }),
+    });
+    const tracker = trackState();
+
+    const result = await runConversion({
+      source: { ...source, name: 'notes.txt', mimeType: 'text/plain' },
+      preset: getPreset('mp4'),
+      ports,
+      dispatch: tracker.dispatch,
+    });
+
+    expect(result.status).toBe('failed');
+    expect(result.failure?.code).toBe('unsupported-source');
+    expect(result.failure?.title).toBe('Unsupported file');
+    expect(result.failure?.detail).toContain('Invalid data found');
+    expect(convert).not.toHaveBeenCalled();
+    // Nothing was written, so nothing needs cleaning up either.
+    expect(createJobDirectory).not.toHaveBeenCalled();
+    expect(tracker.state.status).toBe('failed');
+  });
+
   it('treats success without an output file as a failure and cleans up', async () => {
     const { ports, removeDirectory } = makePorts({ fileExists: async () => false });
 
