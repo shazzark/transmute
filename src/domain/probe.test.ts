@@ -28,6 +28,8 @@ describe('summariseProbe', () => {
       height: 1920,
       hasVideo: true,
       hasAudio: true,
+      subtitleTracks: [],
+      hasSubtitles: false,
     });
   });
 
@@ -86,5 +88,63 @@ describe('formatDuration', () => {
     expect(formatDuration(null)).toBeNull();
     expect(formatDuration(0)).toBeNull();
     expect(formatDuration(-1)).toBeNull();
+  });
+});
+
+describe('summariseProbe — subtitle tracks', () => {
+  /** A Matroska file with two subtitle tracks among its four streams. */
+  const mkvReport: RawProbeInformation = {
+    format: { duration: '90.0', format_name: 'matroska,webm' },
+    streams: [
+      { codec_type: 'video', codec_name: 'h264', width: 1280, height: 720 },
+      { codec_type: 'audio', codec_name: 'aac' },
+      {
+        codec_type: 'subtitle',
+        codec_name: 'subrip',
+        tags: { language: 'eng', title: 'English' },
+        disposition: { default: 1 },
+      },
+      {
+        codec_type: 'subtitle',
+        codec_name: 'ass',
+        tags: { language: 'und' },
+        disposition: { default: 0 },
+      },
+    ],
+  };
+
+  it('numbers tracks among subtitle streams, which is what -map 0:s:N expects', () => {
+    const summary = summariseProbe(mkvReport);
+
+    expect(summary.hasSubtitles).toBe(true);
+    expect(summary.subtitleTracks).toEqual([
+      { streamIndex: 0, codec: 'subrip', language: 'eng', title: 'English', isDefault: true },
+      { streamIndex: 1, codec: 'ass', language: 'und', title: null, isDefault: false },
+    ]);
+  });
+
+  it('keeps the video and audio fields intact when subtitles are present', () => {
+    const summary = summariseProbe(mkvReport);
+
+    expect(summary.videoCodec).toBe('h264');
+    expect(summary.audioCodec).toBe('aac');
+    expect(summary.durationMs).toBe(90_000);
+  });
+
+  it('reports no tracks for a file without subtitles', () => {
+    const summary = summariseProbe(mp4Report);
+
+    expect(summary.hasSubtitles).toBe(false);
+    expect(summary.subtitleTracks).toHaveLength(0);
+  });
+
+  it('treats missing tags and dispositions as unknown, not as warnings', () => {
+    const summary = summariseProbe({
+      streams: [{ codec_type: 'subtitle', codec_name: 'mov_text' }],
+    });
+
+    expect(summary.subtitleTracks).toEqual([
+      { streamIndex: 0, codec: 'mov_text', language: null, title: null, isDefault: false },
+    ]);
   });
 });

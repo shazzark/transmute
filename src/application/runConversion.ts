@@ -23,6 +23,7 @@ import {
   describeMissingEncoder,
   describeProbeFailure,
   describeSourceTooSmall,
+  describeSubtitleUnsupported,
   type EngineOutcome,
   type Failure,
 } from '../domain/errors';
@@ -31,6 +32,7 @@ import { buildOutputName, resolveCollision, sanitizeBaseName } from '../domain/n
 import type { Preset, PresetId } from '../domain/presets';
 import { progressFromStatistics } from '../domain/progress';
 import { summariseProbe, type MediaSummary, type RawProbeInformation } from '../domain/probe';
+import { subtitleTargetFor, type ValidatedSidecar } from '../domain/subtitles';
 import type { JobAction, SourceFile } from './convertJob';
 
 export interface ProbeOutcome {
@@ -255,6 +257,8 @@ export interface RunConversionOptions extends PrepareOptions {
   readonly prepared?: PreparedSource;
   /** Wall clock, injected so elapsed time is testable. */
   readonly now?: () => number;
+  /** Validated sidecar subtitle to mux into the output, when one was chosen. */
+  readonly sidecar?: ValidatedSidecar;
 }
 
 export interface ConversionResult {
@@ -266,7 +270,7 @@ export interface ConversionResult {
 
 
 export async function runConversion(options: RunConversionOptions): Promise<ConversionResult> {
-  const { source, preset, ports, dispatch, cancelSignal, prepared } = options;
+  const { source, preset, ports, dispatch, cancelSignal, prepared, sidecar } = options;
   const now = options.now ?? (() => Date.now());
   const cleanup = createCleanup(ports);
 
@@ -330,6 +334,16 @@ export async function runConversion(options: RunConversionOptions): Promise<Conv
     // reported by the reducer instead of leaving the screen in "ready".
     dispatch({ type: 'convert/started' });
 
+    // A sidecar needs a container with a subtitle stream. The screen does not
+    // offer the option for those presets, so this is a guard: it fails before a
+    // job directory exists, which means there is nothing to clean up.
+    const subtitleTarget = subtitleTargetFor(preset);
+    if (sidecar !== undefined && subtitleTarget === null) {
+      const unsupported = describeSubtitleUnsupported(preset.label);
+      dispatch({ type: 'convert/failed', failure: unsupported });
+      return { status: 'failed', summary, outputPath: null, failure: unsupported };
+    }
+
     jobDirectory = await ports.createJobDirectory();
     const existing = await ports.listDirectory(jobDirectory);
     const outputName = resolveCollision(buildOutputName(source.name, preset.extension), existing);
@@ -343,6 +357,15 @@ export async function runConversion(options: RunConversionOptions): Promise<Conv
         ? { encoder: { encoder: choice.encoder, pixelFormat: choice.pixelFormat } }
         : {}),
       sourceHasAudio: summary.hasAudio,
+      ...(sidecar !== undefined && subtitleTarget !== null
+        ? {
+            sidecar: {
+              path: sidecar.path,
+              format: sidecar.format,
+              codec: subtitleTarget.codec,
+            },
+          }
+        : {}),
     });
 
     let shownPercent = 0;

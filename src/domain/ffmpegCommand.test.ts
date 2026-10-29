@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildConversionArgv, InvalidCommandError } from './ffmpegCommand';
+import { buildConversionArgv, buildExtractionArgv, InvalidCommandError } from './ffmpegCommand';
 import { getPreset, PRESETS } from './presets';
 
 const mp4 = getPreset('mp4');
@@ -205,3 +205,209 @@ describe.each(PRESETS.filter((preset) => preset.kind === 'video'))(
     });
   },
 );
+
+describe('buildConversionArgv — sidecar subtitles', () => {
+  const sidecar = { path: '/cache/jobs/job-11/Trip 2026.srt', format: 'srt' as const };
+
+  function buildWith(id: 'mp4' | 'mkv' | 'webm', codec: string) {
+    const preset = getPreset(id);
+    return buildConversionArgv({
+      preset,
+      inputPath: '/cache/in.mp4',
+      outputPath: `/cache/job-11/out${preset.extension}`,
+      encoder: { encoder: 'libopenh264', pixelFormat: 'yuv420p' },
+      sourceHasAudio: true,
+      sidecar: { ...sidecar, codec },
+    });
+  }
+
+  it('adds the sidecar as a second, explicitly SubRip input', () => {
+    const argv = buildWith('mp4', 'mov_text');
+
+    expect(argv.slice(0, 8)).toEqual([
+      '-y',
+      '-hide_banner',
+      '-i',
+      '/cache/in.mp4',
+      '-f',
+      'srt',
+      '-i',
+      '/cache/jobs/job-11/Trip 2026.srt',
+    ]);
+  });
+
+  it('maps the sidecar stream and encodes it with the container codec', () => {
+    const argv = buildWith('mp4', 'mov_text');
+
+    expect(argv[argv.indexOf('1:s:0') - 1]).toBe('-map');
+    expect(argv[argv.indexOf('-c:s') + 1]).toBe('mov_text');
+    // The track is marked default so a player shows subtitles without a menu trip.
+    expect(argv).toContain('language=und');
+    expect(argv[argv.indexOf('-disposition:s:0') + 1]).toBe('default');
+  });
+
+  it('keeps the sidecar path as a single argument, hostile or not', () => {
+    const hostile = '/cache/; rm -rf / "sub".srt';
+    const argv = buildConversionArgv({
+      preset: getPreset('mkv'),
+      inputPath: '/cache/in.mp4',
+      outputPath: '/cache/job-11/out.mkv',
+      encoder: { encoder: 'libopenh264', pixelFormat: 'yuv420p' },
+      sourceHasAudio: true,
+      sidecar: { path: hostile, format: 'srt', codec: 'srt' },
+    });
+
+    expect(argv.filter((entry) => entry === hostile)).toHaveLength(1);
+    expect(argv.some((entry) => entry.includes(' -i '))).toBe(false);
+  });
+
+  it('leaves the command untouched when no sidecar is chosen', () => {
+    const withSidecar = buildWith('mkv', 'srt');
+    const without = buildConversionArgv({
+      preset: getPreset('mkv'),
+      inputPath: '/cache/in.mp4',
+      outputPath: '/cache/job-11/out.mkv',
+      encoder: { encoder: 'libopenh264', pixelFormat: 'yuv420p' },
+      sourceHasAudio: true,
+    });
+
+    expect(without).not.toContain('-c:s');
+    expect(without).not.toContain('-f');
+    expect(withSidecar.length).toBeGreaterThan(without.length);
+  });
+
+  it('still disables audio when the source is silent and a sidecar is present', () => {
+    const argv = buildConversionArgv({
+      preset: getPreset('mp4'),
+      inputPath: '/cache/silent.mp4',
+      outputPath: '/cache/job-12/silent.mp4',
+      encoder: { encoder: 'libopenh264', pixelFormat: 'yuv420p' },
+      sourceHasAudio: false,
+      sidecar: { ...sidecar, codec: 'mov_text' },
+    });
+
+    expect(argv).toContain('-an');
+    expect(argv).toContain('-c:s');
+  });
+
+  it('refuses a sidecar on an audio-only preset', () => {
+    expect(() =>
+      buildConversionArgv({
+        preset: getPreset('mp3'),
+        inputPath: '/cache/song.wav',
+        outputPath: '/cache/job-13/song.mp3',
+        sourceHasAudio: true,
+        sidecar: { ...sidecar, codec: 'mov_text' },
+      }),
+    ).toThrow(/cannot carry a subtitle track/);
+  });
+
+  it('refuses an unusable sidecar path', () => {
+    expect(() =>
+      buildConversionArgv({
+        preset: getPreset('mp4'),
+        inputPath: '/cache/in.mp4',
+        outputPath: '/cache/job-14/in.mp4',
+        encoder: { encoder: 'libopenh264', pixelFormat: 'yuv420p' },
+        sourceHasAudio: true,
+        sidecar: { path: '   ', format: 'srt', codec: 'mov_text' },
+      }),
+    ).toThrow(/subtitle path is empty/);
+  });
+
+  it('refuses the source file as its own sidecar', () => {
+    expect(() =>
+      buildConversionArgv({
+        preset: getPreset('mp4'),
+        inputPath: '/cache/in.mp4',
+        outputPath: '/cache/job-15/in.mp4',
+        encoder: { encoder: 'libopenh264', pixelFormat: 'yuv420p' },
+        sourceHasAudio: true,
+        sidecar: { path: '/cache/in.mp4', format: 'srt', codec: 'mov_text' },
+      }),
+    ).toThrow(/not a subtitle input/);
+  });
+});
+
+
+describe('buildExtractionArgv', () => {
+  it('maps one subtitle stream and writes it as SubRip', () => {
+    expect(
+      buildExtractionArgv({
+        inputPath: '/cache/in.mkv',
+        outputPath: '/cache/job-16/in.srt',
+        streamIndex: 0,
+        format: 'srt',
+      }),
+    ).toEqual([
+      '-y',
+      '-hide_banner',
+      '-i',
+      '/cache/in.mkv',
+      '-map',
+      '0:s:0',
+      '-c:s',
+      'srt',
+      '/cache/job-16/in.srt',
+    ]);
+  });
+
+  it('writes WebVTT and honours the chosen track', () => {
+    const argv = buildExtractionArgv({
+      inputPath: '/cache/in.mkv',
+      outputPath: '/cache/job-17/in.vtt',
+      streamIndex: 2,
+      format: 'vtt',
+    });
+
+    expect(argv[argv.indexOf('-map') + 1]).toBe('0:s:2');
+    expect(argv[argv.indexOf('-c:s') + 1]).toBe('webvtt');
+  });
+
+  it('never touches the video or audio streams', () => {
+    const argv = buildExtractionArgv({
+      inputPath: '/cache/in.mkv',
+      outputPath: '/cache/job-18/in.srt',
+      streamIndex: 0,
+      format: 'srt',
+    });
+
+    expect(argv).not.toContain('-c:v');
+    expect(argv).not.toContain('-c:a');
+    expect(argv).not.toContain('-vn');
+  });
+
+  it('refuses a negative or fractional track number', () => {
+    const base = {
+      inputPath: '/cache/in.mkv',
+      outputPath: '/cache/job-19/in.srt',
+      format: 'srt' as const,
+    };
+
+    expect(() => buildExtractionArgv({ ...base, streamIndex: -1 })).toThrow(/valid track number/);
+    expect(() => buildExtractionArgv({ ...base, streamIndex: 1.5 })).toThrow(/valid track number/);
+  });
+
+  it('refuses to write over the input', () => {
+    expect(() =>
+      buildExtractionArgv({
+        inputPath: '/cache/in.srt',
+        outputPath: '/cache/in.srt',
+        streamIndex: 0,
+        format: 'srt',
+      }),
+    ).toThrow(/overwrite the source/);
+  });
+
+  it('refuses an option-like output path', () => {
+    expect(() =>
+      buildExtractionArgv({
+        inputPath: '/cache/in.mkv',
+        outputPath: '-out.srt',
+        streamIndex: 0,
+        format: 'srt',
+      }),
+    ).toThrow(/starts with "-"/);
+  });
+});
+

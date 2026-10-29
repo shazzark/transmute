@@ -4,7 +4,8 @@
  * FFprobe prints numbers as strings and only what the container exposes, so
  * every field here is optional and every conversion is defensive. The output is
  * what the UI shows and what the argv builder needs (duration, audio presence,
- * frame size for the hardware-encoder check) — nothing more (TR-17).
+ * frame size for the hardware-encoder check, subtitle tracks for extraction) —
+ * nothing more (TR-17).
  */
 
 /** The subset of `munim-ffmpeg`'s `MediaInformation` this module reads. */
@@ -14,6 +15,15 @@ export interface RawProbeStream {
   readonly width?: number;
   readonly height?: number;
   readonly duration?: string;
+  readonly tags?: {
+    readonly language?: string;
+    readonly title?: string;
+    readonly [key: string]: unknown;
+  };
+  readonly disposition?: {
+    readonly default?: number;
+    readonly [key: string]: unknown;
+  };
   readonly [key: string]: unknown;
 }
 
@@ -38,6 +48,33 @@ export interface MediaSummary {
   readonly height: number | null;
   readonly hasVideo: boolean;
   readonly hasAudio: boolean;
+  /** Embedded subtitle tracks, in the order FFmpeg can map them. */
+  readonly subtitleTracks: readonly SubtitleTrack[];
+  readonly hasSubtitles: boolean;
+}
+
+/**
+ * One embedded subtitle track.
+ *
+ * `streamIndex` counts subtitle streams only, which is exactly what
+ * `-map 0:s:N` expects — not the absolute stream index FFprobe reports.
+ */
+export interface SubtitleTrack {
+  /** 0-based position among the file's subtitle streams, for `-map 0:s:N`. */
+  readonly streamIndex: number;
+  readonly codec: string | null;
+  readonly language: string | null;
+  readonly title: string | null;
+  /** True when the container marks this track as the default one. */
+  readonly isDefault: boolean;
+}
+
+function normaliseTag(value: string | undefined): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? null : trimmed;
 }
 
 function parseSeconds(value: string | undefined): number | null {
@@ -81,6 +118,15 @@ export function summariseProbe(information: RawProbeInformation | null | undefin
   const streams = Array.isArray(information?.streams) ? information.streams : [];
   const video = streams.find((stream) => stream?.codec_type === 'video');
   const audio = streams.find((stream) => stream?.codec_type === 'audio');
+  const subtitleTracks = streams
+    .filter((stream) => stream?.codec_type === 'subtitle')
+    .map((stream, position) => ({
+      streamIndex: position,
+      codec: normaliseTag(stream.codec_name),
+      language: normaliseTag(stream.tags?.language),
+      title: normaliseTag(stream.tags?.title),
+      isDefault: stream.disposition?.default === 1,
+    }));
 
   const seconds =
     parseSeconds(information?.format?.duration) ??
@@ -98,5 +144,7 @@ export function summariseProbe(information: RawProbeInformation | null | undefin
     height: positiveInt(video?.height),
     hasVideo: video !== undefined,
     hasAudio: audio !== undefined,
+    subtitleTracks,
+    hasSubtitles: subtitleTracks.length > 0,
   };
 }

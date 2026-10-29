@@ -21,6 +21,8 @@ const summary: MediaSummary = {
   height: 1920,
   hasVideo: true,
   hasAudio: true,
+  subtitleTracks: [],
+  hasSubtitles: false,
 };
 
 function probed(): JobState {

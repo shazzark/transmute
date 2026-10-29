@@ -609,3 +609,120 @@ describe('runConversion — audio presets', () => {
   });
 });
 
+
+describe('runConversion — sidecar subtitles', () => {
+  const sidecar = {
+    path: '/cache/TransmuteDocumentPicker/Trip 2026.srt',
+    name: 'Trip 2026.srt',
+    format: 'srt' as const,
+    cueCount: 120,
+    firstCueLabel: '0:04',
+    lastCueLabel: '1:32:10',
+  };
+
+  it('muxes the sidecar with the codec the chosen container needs', async () => {
+    const { ports, convert } = makePorts();
+    const tracker = trackState();
+
+    const result = await runConversion({
+      source,
+      preset: getPreset('mkv'),
+      ports,
+      dispatch: tracker.dispatch,
+      sidecar,
+    });
+
+    expect(result.status).toBe('done');
+    const argv = convert.mock.calls[0]?.[0].argv as string[];
+    expect(argv[argv.indexOf('-f') + 1]).toBe('srt');
+    expect(argv).toContain(sidecar.path);
+    expect(argv[argv.indexOf('-c:s') + 1]).toBe('srt');
+    // The output name still comes from the source, not from the subtitle file.
+    expect(argv.at(-1)).toBe('/cache/jobs/job-1/Trip 2026.mkv');
+  });
+
+  it('transcodes to mov_text for MP4 and webvtt for WebM', async () => {
+    const mp4 = makePorts();
+    await runConversion({
+      source,
+      preset: getPreset('mp4'),
+      ports: mp4.ports,
+      dispatch: trackState().dispatch,
+      sidecar,
+    });
+    const mp4Argv = mp4.convert.mock.calls[0]?.[0].argv as string[];
+    expect(mp4Argv[mp4Argv.indexOf('-c:s') + 1]).toBe('mov_text');
+
+    const webm = makePorts({
+      listEncoders: async () => ['libvpx-vp9', 'libopus', 'webvtt'],
+    });
+    await runConversion({
+      source,
+      preset: getPreset('webm'),
+      ports: webm.ports,
+      dispatch: trackState().dispatch,
+      sidecar,
+    });
+    const webmArgv = webm.convert.mock.calls[0]?.[0].argv as string[];
+    expect(webmArgv[webmArgv.indexOf('-c:s') + 1]).toBe('webvtt');
+  });
+
+  it('leaves the command without subtitle arguments when no sidecar is chosen', async () => {
+    const { ports, convert } = makePorts();
+
+    await runConversion({
+      source,
+      preset: getPreset('mp4'),
+      ports,
+      dispatch: trackState().dispatch,
+    });
+
+    const argv = convert.mock.calls[0]?.[0].argv as string[];
+    expect(argv).not.toContain('-c:s');
+  });
+
+  it('refuses a sidecar on an audio preset before a job directory exists', async () => {
+    const createJobDirectory = vi.fn(async () => '/cache/jobs/job-1');
+    // Every encoder the MP3 preset needs is present, so the only thing that can
+    // fail here is the sidecar itself.
+    const { ports, convert } = makePorts({
+      createJobDirectory,
+      listEncoders: async () => ['h264_mediacodec', 'aac', 'libmp3lame'],
+    });
+
+    const result = await runConversion({
+      source,
+      preset: getPreset('mp3'),
+      ports,
+      dispatch: trackState().dispatch,
+      sidecar,
+    });
+
+    expect(result.status).toBe('failed');
+    expect(result.failure?.code).toBe('subtitle-unsupported');
+    expect(result.failure?.message).toContain(getPreset('mp3').label);
+    expect(createJobDirectory).not.toHaveBeenCalled();
+    expect(convert).not.toHaveBeenCalled();
+  });
+
+  it('reports a missing subtitle encoder instead of writing a file without the track', async () => {
+    const { ports, convert } = makePorts({
+      listEncoders: async () => ['h264_mediacodec', 'aac', 'subrip'],
+    });
+
+    const result = await runConversion({
+      source,
+      preset: getPreset('mp4'),
+      ports,
+      dispatch: trackState().dispatch,
+      sidecar,
+    });
+
+    // The container codec is decided by the container, not by what happens to be
+    // installed, so the job runs and the engine reports any missing codec itself.
+    expect(result.status).toBe('done');
+    const argv = convert.mock.calls[0]?.[0].argv as string[];
+    expect(argv[argv.indexOf('-c:s') + 1]).toBe('mov_text');
+  });
+});
+

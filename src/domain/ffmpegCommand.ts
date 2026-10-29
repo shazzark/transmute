@@ -7,10 +7,19 @@
  */
 
 import type { Preset } from './presets';
+import { subtitleCodecFor, subtitleDemuxerFor, type SidecarFormat, type SubtitleFormat } from './subtitles';
 
 export interface VideoEncoderSelection {
   readonly encoder: string;
   readonly pixelFormat: 'nv12' | 'yuv420p';
+}
+
+/** A validated sidecar subtitle file to mux into the output. */
+export interface SidecarArgument {
+  readonly path: string;
+  readonly format: SidecarFormat;
+  /** `-c:s` value the container needs; from `subtitleTargetFor(preset)`. */
+  readonly codec: string;
 }
 
 export interface BuildArgvInput {
@@ -25,7 +34,12 @@ export interface BuildArgvInput {
    * encode a stream that does not exist.
    */
   readonly sourceHasAudio: boolean;
+  /** Video presets only; a sidecar on an audio preset is rejected. */
+  readonly sidecar?: SidecarArgument;
 }
+
+/** The sidecar is the second input, after the source. */
+const SIDECAR_INPUT_INDEX = 1;
 
 export class InvalidCommandError extends Error {
   constructor(message: string) {
@@ -61,15 +75,28 @@ function assertUsablePath(label: string, value: string): void {
  *         reaches the engine.
  */
 export function buildConversionArgv(input: BuildArgvInput): string[] {
-  const { preset, inputPath, outputPath, encoder, sourceHasAudio } = input;
+  const { preset, inputPath, outputPath, encoder, sourceHasAudio, sidecar } = input;
 
   assertUsablePath('input', inputPath);
   assertUsablePath('output', outputPath);
   if (inputPath === outputPath) {
     throw new InvalidCommandError('The output path is the input path; that would overwrite the source.');
   }
+  if (sidecar) {
+    assertUsablePath('subtitle', sidecar.path);
+    if (sidecar.path === inputPath) {
+      throw new InvalidCommandError('The subtitle file is the source file; that is not a subtitle input.');
+    }
+    if (preset.kind !== 'video') {
+      throw new InvalidCommandError(`The ${preset.label} preset cannot carry a subtitle track.`);
+    }
+  }
 
   const argv: string[] = ['-y', '-hide_banner', '-i', inputPath];
+  if (sidecar) {
+    // `-f` applies to the input that follows it, so the demuxer is not guessed.
+    argv.push('-f', subtitleDemuxerFor(sidecar.format), '-i', sidecar.path);
+  }
 
   if (preset.kind === 'video') {
     if (!encoder) {
@@ -78,6 +105,10 @@ export function buildConversionArgv(input: BuildArgvInput): string[] {
     argv.push('-map', '0:v:0');
     if (sourceHasAudio) {
       argv.push('-map', '0:a:0?');
+    }
+    if (sidecar) {
+      // First subtitle stream of the sidecar input; the container picks the codec.
+      argv.push('-map', `${SIDECAR_INPUT_INDEX}:s:0`);
     }
 
     argv.push('-c:v', encoder.encoder);
@@ -99,6 +130,12 @@ export function buildConversionArgv(input: BuildArgvInput): string[] {
       argv.push('-an');
     }
 
+    if (sidecar) {
+      argv.push('-c:s', sidecar.codec);
+      // A sidecar carries no language, so say so; and make players pick it.
+      argv.push('-metadata:s:s:0', 'language=und', '-disposition:s:0', 'default');
+    }
+
     if (FASTSTART_CONTAINERS.includes(preset.container)) {
       // Puts the index at the front so the file plays while it streams.
       argv.push('-movflags', '+faststart');
@@ -117,4 +154,46 @@ export function buildConversionArgv(input: BuildArgvInput): string[] {
 
   argv.push(outputPath);
   return argv;
+}
+
+export interface BuildExtractArgvInput {
+  readonly inputPath: string;
+  readonly outputPath: string;
+  /** 0-based position among the source's subtitle streams, from the probe. */
+  readonly streamIndex: number;
+  readonly format: SubtitleFormat;
+}
+
+/**
+ * Builds the argument array that copies one embedded subtitle track to a file.
+ *
+ * A stream copy, not a re-encode of the video: `-map 0:s:N` selects exactly one
+ * subtitle stream and `-c:s` writes it as text. `-map` rather than "-sn off"
+ * means an unknown track fails loudly instead of producing an empty file (D2).
+ *
+ * @throws {InvalidCommandError} when the paths or the track number are unusable.
+ */
+export function buildExtractionArgv(input: BuildExtractArgvInput): string[] {
+  const { inputPath, outputPath, streamIndex, format } = input;
+
+  assertUsablePath('input', inputPath);
+  assertUsablePath('output', outputPath);
+  if (inputPath === outputPath) {
+    throw new InvalidCommandError('The output path is the input path; that would overwrite the source.');
+  }
+  if (!Number.isInteger(streamIndex) || streamIndex < 0) {
+    throw new InvalidCommandError(`Subtitle track ${streamIndex} is not a valid track number.`);
+  }
+
+  return [
+    '-y',
+    '-hide_banner',
+    '-i',
+    inputPath,
+    '-map',
+    `0:s:${streamIndex}`,
+    '-c:s',
+    subtitleCodecFor(format),
+    outputPath,
+  ];
 }

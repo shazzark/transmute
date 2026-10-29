@@ -6,6 +6,8 @@
  * engine exit code is shown rather than swallowed (TR-30).
  */
 
+import type { SidecarProblemDetail } from './subtitles';
+
 export type FailureCode =
   | 'pick-cancelled'
   | 'pick-failed'
@@ -16,7 +18,12 @@ export type FailureCode =
   | 'engine-failed'
   | 'conversion-cancelled'
   | 'save-failed'
-  | 'output-missing';
+  | 'output-missing'
+  | 'subtitle-invalid'
+  | 'subtitle-pick-failed'
+  | 'subtitle-unsupported'
+  | 'extraction-failed'
+  | 'no-subtitle-track';
 
 export interface Failure {
   readonly code: FailureCode;
@@ -250,4 +257,153 @@ export function describeSaveFailure(error: unknown, destination: SaveDestination
         recovery: 'Choose another folder and try again. The file is still in the app cache.',
         ...detail,
       };
+}
+
+// ---------------------------------------------------------------------------
+// Subtitles (Phase 6)
+// ---------------------------------------------------------------------------
+
+/**
+ * Why a sidecar was refused, said in terms of the file the user just picked.
+ *
+ * Every branch names the file and the next step, because "invalid file" on its
+ * own would leave the user guessing which of several things went wrong (D3).
+ */
+export function describeSidecarProblem(
+  problem: SidecarProblemDetail,
+  fileName: string,
+): Failure {
+  const where = problem.line === null ? '' : ` on line ${problem.line}`;
+
+  switch (problem.problem) {
+    case 'wrong-type':
+      return {
+        code: 'subtitle-invalid',
+        title: 'Not a subtitle file',
+        message: `${fileName} is not a subtitle file. This build embeds SubRip (.srt) files.`,
+        recovery: 'Choose a file whose name ends in .srt.',
+      };
+    case 'empty':
+      return {
+        code: 'subtitle-invalid',
+        title: 'Subtitle file is empty',
+        message: `${fileName} has no text in it.`,
+        recovery: 'Choose a subtitle file that contains at least one timed line.',
+      };
+    case 'binary':
+      return {
+        code: 'subtitle-invalid',
+        title: 'Subtitle file is not text',
+        message: `${fileName} contains binary data, so it cannot be read as subtitles.`,
+        recovery: 'Choose the subtitle file itself, not a video or a compressed file.',
+      };
+    case 'no-cues':
+      return {
+        code: 'subtitle-invalid',
+        title: 'No cue times found',
+        message: `${fileName} has text but no cue times, so the track would be empty.`,
+        recovery: 'Choose a subtitle file whose lines are timed, like a normal .srt file.',
+      };
+    case 'bad-timing':
+      return {
+        code: 'subtitle-invalid',
+        title: 'Cue times are unreadable',
+        message: `${fileName} has a cue${where} whose times cannot be read.`,
+        recovery: 'Open the file in a subtitle editor, re-save it as SubRip, then choose it again.',
+        detail: 'Cue times look like: 00:00:12,480 --> 00:00:15,000 (the end must be after the start).',
+      };
+    default: {
+      const unhandled: never = problem.problem;
+      return {
+        code: 'subtitle-invalid',
+        title: 'Subtitle file refused',
+        message: `${fileName} was refused for an unlisted reason (${String(unhandled)}).`,
+        recovery: 'Choose the file again, or report this message.',
+      };
+    }
+  }
+}
+
+/** The picker or the cache refused the sidecar before it could be read. */
+export function describeSubtitlePickFailure(error: unknown): Failure {
+  const message = error instanceof Error && error.message ? error.message : '';
+  return {
+    code: 'subtitle-pick-failed',
+    title: 'Subtitle file not available',
+    message: 'The app could not read the subtitle file you chose.',
+    recovery: 'Download the file to the device first, then choose it again.',
+    ...(message ? { detail: message } : {}),
+  };
+}
+
+/** A sidecar on a preset whose container has no subtitle stream. */
+export function describeSubtitleUnsupported(presetLabel: string): Failure {
+  return {
+    code: 'subtitle-unsupported',
+    title: 'This format cannot hold subtitles',
+    message: `${presetLabel} has no subtitle stream, so the subtitle file cannot be added to it.`,
+    recovery: 'Choose MP4, MKV, MOV, or WEBM, or remove the subtitle file.',
+  };
+}
+
+/** Extraction found nothing to copy, so the file stays as it was. */
+export function describeNoSubtitleTrack(): Failure {
+  return {
+    code: 'no-subtitle-track',
+    title: 'No subtitle track',
+    message: 'This file has no subtitle track inside it, so there is nothing to extract.',
+    recovery: 'Pick a different file, or embed a subtitle file into a conversion instead.',
+  };
+}
+
+/**
+ * A failed extraction, with the engine's own words in Details.
+ *
+ * Separate from `describeEngineOutcome` because nothing was converted: saying
+ * "Conversion failed" for a one-stream copy would name the wrong operation.
+ */
+export function describeExtractionFailure(outcome: EngineOutcome): Failure {
+  if (outcome.cancelled) {
+    return {
+      code: 'extraction-failed',
+      title: 'Extraction cancelled',
+      message: 'Extracting the subtitles was cancelled, and its temporary files were removed.',
+      recovery: 'Extract the subtitles again when you are ready.',
+    };
+  }
+
+  const output = outcome.output ?? '';
+  const text = output.toLowerCase();
+
+  if (
+    text.includes('matches no streams') ||
+    text.includes('does not contain any stream') ||
+    text.includes('invalid stream specifier')
+  ) {
+    return withDetail(describeNoSubtitleTrack(), output, outcome.returnCode);
+  }
+
+  if (text.includes('no space left')) {
+    return withDetail(
+      {
+        code: 'extraction-failed',
+        title: 'Not enough space',
+        message: 'The device ran out of storage while writing the subtitle file.',
+        recovery: 'Free up space, then extract again.',
+      },
+      output,
+      outcome.returnCode,
+    );
+  }
+
+  return withDetail(
+    {
+      code: 'extraction-failed',
+      title: 'Could not extract subtitles',
+      message: `The engine stopped with exit code ${outcome.returnCode} before writing the subtitles.`,
+      recovery: 'Open Details and report the code, or try a different file.',
+    },
+    output,
+    outcome.returnCode,
+  );
 }
