@@ -10,6 +10,8 @@
  */
 
 import type { NotificationContent } from '../domain/jobNotification';
+import { runningNotification } from '../domain/jobNotification';
+import { activeJob, positionOf, queuePercent, type QueueState } from '../domain/queue';
 
 /** The narrow port the notification path needs; the adapter lives in `src/native`. */
 export interface ForegroundPorts {
@@ -34,6 +36,27 @@ export interface NotificationPublisher {
 
 function keyOf(content: NotificationContent): string {
   return `${content.title}\u0000${content.text}\u0000${content.percent}`;
+}
+
+/**
+ * What the notification should say for a queue, or `null` when nothing is running.
+ *
+ * This is the one bridge between the queue's state and the notification's words:
+ * both halves are tested separately, and this function is the only place that
+ * knows the two shapes meet.
+ */
+export function notificationForQueue(state: QueueState): NotificationContent | null {
+  const job = activeJob(state);
+  if (job === null) {
+    return null;
+  }
+  return runningNotification({
+    position: positionOf(state, job.id),
+    total: state.jobs.length,
+    name: job.source.name,
+    percent: job.indeterminate ? null : job.progress,
+    overallPercent: queuePercent(state),
+  });
 }
 
 export function createNotificationPublisher(ports: ForegroundPorts): NotificationPublisher {

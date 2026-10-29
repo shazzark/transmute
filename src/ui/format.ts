@@ -2,6 +2,8 @@
  * Display helpers for the screen. Pure, so they are unit-tested in Node.
  */
 
+import type { QueueJob } from '../domain/queue';
+
 /** Bytes as `12.3 MB`, using decimal units like Android's own storage screens. */
 export function formatBytes(bytes: number | null | undefined): string | null {
   if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < 0) {
@@ -74,4 +76,33 @@ export function resolutionLabel(
     return null;
   }
   return `${Math.round(width)}×${Math.round(height)}`;
+}
+
+/**
+ * The phrase a queue row shows for its state.
+ *
+ * "Cancelling…" is deliberately different from "Cancelled": the engine may take a
+ * moment, and a row that claims to have stopped before it has is the kind of
+ * small lie that makes a progress screen untrustworthy (TR-11).
+ */
+export function queueStatusLabel(
+  job: Pick<QueueJob, 'status' | 'progress' | 'indeterminate' | 'cancelRequested'>,
+): string {
+  switch (job.status) {
+    case 'queued':
+      return 'Queued';
+    case 'converting':
+      if (job.cancelRequested) {
+        return 'Cancelling…';
+      }
+      return job.indeterminate
+        ? 'Converting…'
+        : `Converting — ${Math.max(0, Math.min(100, Math.round(job.progress)))}%`;
+    case 'complete':
+      return 'Converted';
+    case 'failed':
+      return 'Failed';
+    case 'cancelled':
+      return 'Cancelled';
+  }
 }

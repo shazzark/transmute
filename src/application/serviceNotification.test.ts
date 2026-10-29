@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import type { SourceFile } from '../domain/mediaFiles';
+import { initialQueueState, queueReducer, type QueueState } from '../domain/queue';
 import type { NotificationContent } from '../domain/jobNotification';
 import {
   createNotificationPublisher,
+  notificationForQueue,
   type ForegroundPorts,
   type NotificationPublisher,
 } from './serviceNotification';
@@ -12,6 +15,57 @@ const CONTENT: NotificationContent = {
   text: 'MyVideo.mp4 — 45%',
   percent: 15,
 };
+
+function source(name: string): SourceFile {
+  return { path: `/cache/${name}`, name, sizeBytes: 1024, mimeType: 'video/mp4' };
+}
+
+function queueOf(...names: string[]): QueueState {
+  return queueReducer(initialQueueState, { type: 'queue/added', sources: names.map(source) });
+}
+
+describe('notificationForQueue', () => {
+  it('says nothing while no row is running', () => {
+    expect(notificationForQueue(queueOf('a.mp4'))).toBeNull();
+    expect(notificationForQueue(initialQueueState)).toBeNull();
+  });
+
+  it('names the running row, its place in the batch, and the batch percentage', () => {
+    const started = queueReducer(queueOf('a.mp4', 'b.mp4'), {
+      type: 'queue/started',
+      id: 'job-1',
+    });
+    const progressed = queueReducer(started, {
+      type: 'queue/progress',
+      id: 'job-1',
+      percent: 50,
+      elapsedMs: 1000,
+    });
+
+    // One of two rows at 50% is 25% of the batch.
+    expect(notificationForQueue(progressed)).toEqual({
+      title: 'Converting 1 of 2',
+      text: 'a.mp4 — 50%',
+      percent: 25,
+    });
+  });
+
+  it('admits an unknown length instead of showing a made-up percentage', () => {
+    const started = queueReducer(queueOf('a.mp4'), { type: 'queue/started', id: 'job-1' });
+
+    const content = notificationForQueue(started);
+    expect(content?.text).toBe('a.mp4 — working…');
+  });
+
+  it('stops describing the row once it is finished', () => {
+    const finished = queueReducer(
+      queueReducer(queueOf('a.mp4'), { type: 'queue/started', id: 'job-1' }),
+      { type: 'queue/completed', id: 'job-1', output: { name: 'a.mp4', path: '/cache/a.mp4' } },
+    );
+
+    expect(notificationForQueue(finished)).toBeNull();
+  });
+});
 
 function fakePorts(overrides: Partial<ForegroundPorts> = {}): {
   ports: ForegroundPorts;

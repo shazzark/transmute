@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { containerLabel, extensionLabel, formatBytes, metadataLine, resolutionLabel } from './format';
+import {
+  containerLabel,
+  extensionLabel,
+  formatBytes,
+  metadataLine,
+  queueStatusLabel,
+  resolutionLabel,
+} from './format';
 
 describe('formatBytes', () => {
   it('uses bytes below one thousand', () => {
@@ -81,5 +88,38 @@ describe('resolutionLabel', () => {
     expect(resolutionLabel(1080, null)).toBeNull();
     expect(resolutionLabel(0, 1920)).toBeNull();
     expect(resolutionLabel(Number.NaN, 1920)).toBeNull();
+  });
+});
+
+describe('queueStatusLabel', () => {
+  const base = { progress: 0, indeterminate: true, cancelRequested: false };
+
+  it('names each state the row can be in', () => {
+    expect(queueStatusLabel({ ...base, status: 'queued' })).toBe('Queued');
+    expect(queueStatusLabel({ ...base, status: 'complete' })).toBe('Converted');
+    expect(queueStatusLabel({ ...base, status: 'failed' })).toBe('Failed');
+    expect(queueStatusLabel({ ...base, status: 'cancelled' })).toBe('Cancelled');
+  });
+
+  it('shows a real percentage only when one exists', () => {
+    expect(queueStatusLabel({ ...base, status: 'converting' })).toBe('Converting…');
+    expect(
+      queueStatusLabel({ ...base, status: 'converting', indeterminate: false, progress: 45.4 }),
+    ).toBe('Converting — 45%');
+  });
+
+  it('separates "cancelling" from "cancelled"', () => {
+    expect(queueStatusLabel({ ...base, status: 'converting', cancelRequested: true })).toBe(
+      'Cancelling…',
+    );
+  });
+
+  it('keeps a stray percentage inside 0–100', () => {
+    expect(
+      queueStatusLabel({ ...base, status: 'converting', indeterminate: false, progress: 250 }),
+    ).toBe('Converting — 100%');
+    expect(
+      queueStatusLabel({ ...base, status: 'converting', indeterminate: false, progress: -5 }),
+    ).toBe('Converting — 0%');
   });
 });

@@ -4,7 +4,11 @@
 
 ## Status
 
-🚧 **Phase 6 in progress.** The app picks a video, probes it with the bundled engine, converts it on the device to one of its output formats, saves the finished file to Photos or a folder the user chooses, and now handles subtitles: a SubRip sidecar can be embedded into the output, and an embedded subtitle track can be extracted to SRT or VTT.
+🚧 **Phase 3 in progress.** The app picks one or more videos, probes them with the bundled engine, converts them on the device one after another, and saves the finished files. Phase 3 added the batch queue and the foreground service that keeps a conversion running while the app is in the background.
+
+What is verified: `npx tsc --noEmit` and `npx vitest run` (366 tests) pass, `npx expo prebuild` succeeds, the local module compiles (`:transmute-background:compileDebugKotlin`), and the merged debug manifest declares `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_DATA_SYNC`, `POST_NOTIFICATIONS`, and the service with `android:foregroundServiceType="dataSync"`.
+
+What is not verified yet: the device checks from Phase 3 — a batch backgrounded with the screen off, the notification's Cancel, the force-stop recovery, and the notification permission prompt. **No phone was attached for this phase** (`adb devices` listed nothing), so those are open, not passed.
 
 ## Features (target)
 
@@ -12,9 +16,27 @@
 - Extract audio: MP3, AAC, WAV, FLAC, ALAC, OGG, OPUS
 - Export subtitles: SRT, ASS, VTT
 - Embed subtitle files into video
-- Batch conversion queue
+- Batch conversion queue — **done, Phase 3**
 - Large file support (>1GB)
-- Background conversion with foreground service notification
+- Background conversion with foreground service notification — **done, Phase 3**
+
+## Batch queue
+
+Select several files in one trip through the system picker; they are converted strictly one at a time, in the order picked, because two FFmpeg encodes on one phone is slower than two encodes one after the other.
+
+- Every row states its own condition: queued, converting with a real percentage, converted, failed with the reason and a Try again button, or cancelled.
+- **Cancel** on a waiting row removes it before it costs anything. **Cancel** on the running row asks first, then stops the engine and deletes the partial file. **Cancel all** stops the batch; already-converted files are kept.
+- A file that fails does not stop the batch. Its reason stays attached to its row.
+- The output format applies to the whole batch and cannot be changed while a row is running — a batch is never half in one container.
+- A finished row offers its own copy (Photos or a chosen folder). A single-file batch still copies to Photos automatically, as before; a batch of many does not, so twenty files cannot fill the photo library unasked.
+
+## Background conversion
+
+Conversions run in the app's own process, so Android needs a foreground service to keep a backgrounded app from being frozen or killed. The service is a local Expo module (`modules/transmute-background`), not a dependency: it shows one ongoing, silent notification with the batch position, the current file, and overall progress, plus a Cancel action that stops the batch the same way Cancel All does.
+
+- Declared as `android:foregroundServiceType="dataSync"`, the truthful description of "work that finishes on its own schedule"; Android 14+ rejects a foreground service without a type.
+- The notification permission is requested once, when Convert is tapped. If it is refused the conversion still runs and the screen says the notification is unavailable — a denied notification must never become a failed conversion.
+- Android 15+ caps `dataSync` services per day; that limit and its behaviour are documented in `implementation-plan.md` as unverified until a device run records it.
 
 ## Subtitle support
 
