@@ -1,0 +1,20 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+  <!--
+    A conversion is native work inside this process, so the only thing that keeps
+    Android from freezing or killing it is a foreground service. The type is
+    `dataSync`: it is the truthful description of "work that finishes on its own
+    schedule", and Android 14 rejects a service without one (TR-10).
+  -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+  <application>
+    <service
+      android:name=".TransmuteProgressService"
+      android:exported="false"
+      android:foregroundServiceType="dataSync" />
+  </application>
+
+</manifest>

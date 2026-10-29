@@ -1,0 +1,6 @@
+{
+  "name": "transmute-background",
+  "version": "0.1.0",
+  "description": "Foreground service and progress notification that keep a conversion alive while the app is backgrounded.",
+  "private": true
+}

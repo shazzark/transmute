@@ -43,6 +43,13 @@ android/captures/
 android/.externalNativeBuild/
 android/app/release/
 android/.kotlin/
+
+# Local Expo modules build in place under `modules/`; their Gradle output is
+# generated exactly like the app's and never belongs in the repository.
+modules/*/android/build/
+modules/*/android/.gradle/
+modules/*/android/.cxx/
+modules/*/android/.kotlin/
 *.apk
 *.aab
 *.ap_
