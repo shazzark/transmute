@@ -6,6 +6,11 @@
 
 **Status:** Authorized execution through Phase 7; earlier phases have open evidence gaps | **Owner:** `shazzark` | **Updated:** 2026-10-29
 
+## Current continuation (2026-10-30)
+
+- **Native build:** A fresh C path rebuild passed clean/prebuild and Gradle configuration, then failed in Ninja because a generated object path exceeds Windows' 260-character limit. The previous generated cache also referenced an absent `transmute-workspace-link` path. The exact Ninja/compiler command, working directories, and full error are recorded in `implementation-plan.md`. `scripts/build-android.ps1` now rebuilds through a temporary drive mapping in a normal PowerShell session, uses the verified Android Studio JDK 21.0.9, one Gradle worker and CMake parallelism 1, and preserves `armeabi-v7a`. The Codex process cannot enumerate the mapped drive root, so this remedy remains unverified here. `adb devices -l` also lists no attached device.
+- **Frontend:** Added a shared Transmute identity header and a local-processing indicator. Automated checks are independent of Android/native/device checks; neither phone launch nor notification/conversion acceptance is closed by UI checks.
+
 ## Current execution checklist
 
 - [x] Reproduce and fix queue startup being blocked on notification permission.
