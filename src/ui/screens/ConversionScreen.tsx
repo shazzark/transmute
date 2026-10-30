@@ -63,6 +63,7 @@ import { clearConversionMarker, interruptedRecoveryPorts, markConversionRunning,
 import { savePorts } from '../../native/saveDestination';
 import { sidecarPorts } from '../../native/subtitlePicker';
 import { Banner } from '../components/Banner';
+import { BrandHeader } from '../components/BrandHeader';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ConversionSummary } from '../components/ConversionSummary';
 import { PresetSelector } from '../components/PresetSelector';
@@ -832,7 +833,7 @@ export function ConversionScreen(): React.JSX.Element {
           leadingContent={(
             <View style={styles.inner}>
               <View style={styles.header}>
-                <Text style={styles.title} allowFontScaling accessibilityRole="header">Transmute</Text>
+                <BrandHeader />
                 <Text style={styles.subtitle} allowFontScaling>
                   Convert videos into another format â€” or take out just the audio â€” on this device.
                   Nothing is uploaded.
@@ -883,9 +884,7 @@ export function ConversionScreen(): React.JSX.Element {
       <ScrollView contentContainerStyle={styles.content} style={styles.scroll}>
         <View style={styles.inner}>
           <View style={styles.header}>
-            <Text style={styles.title} allowFontScaling accessibilityRole="header">
-              Transmute
-            </Text>
+            <BrandHeader />
             <Text style={styles.subtitle} allowFontScaling>
               Convert videos into another format — or take out just the audio — on this device.
               Nothing is uploaded.
