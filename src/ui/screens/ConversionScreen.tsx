@@ -65,7 +65,7 @@ import { clearConversionMarker, interruptedRecoveryPorts, markConversionRunning,
 import { savePorts } from '../../native/saveDestination';
 import { sidecarPorts } from '../../native/subtitlePicker';
 import { Banner } from '../components/Banner';
-import { BrandHeader } from '../components/BrandHeader';
+import { BrandHeader, BrandMark } from '../components/BrandHeader';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ConversionSummary } from '../components/ConversionSummary';
 import { PresetSelector } from '../components/PresetSelector';
@@ -1285,7 +1285,10 @@ function HomeDashboard({
   return (
     <View style={styles.dashboard}>
       <Entrance delay={0}><View style={styles.homeHeader}>
-        <BrandHeader />
+        <View style={styles.homeIdentity}>
+          <BrandMark />
+          <Text style={styles.homeWordmark} accessibilityRole="header" allowFontScaling>Transmute</Text>
+        </View>
         <Pressable onPress={onActivity} accessibilityRole="button" accessibilityLabel="Open notifications and conversion activity" style={({ pressed }) => [styles.bell, pressed && styles.pressed]}>
           <View accessible={false} style={styles.bellShape}><View style={styles.bellDome} /><View style={styles.bellClapper} /></View>
         </Pressable>
@@ -1297,7 +1300,7 @@ function HomeDashboard({
       <Entrance delay={150}><Pressable onPress={onConvert} accessibilityRole="button" accessibilityLabel="Convert files" style={({ pressed }) => [styles.primaryCard, pressed && styles.pressed]}>
         <Text style={styles.primaryCardTitle}>Convert files</Text>
         <Text style={styles.primaryCardCopy}>Choose media and set an output format</Text>
-        <Text style={styles.cardArrow} accessible={false}>→</Text>
+        <Text style={styles.primaryArrow} accessible={false}>→</Text>
       </Pressable></Entrance>
       <Entrance delay={225}><View style={styles.section}>
         <Text style={styles.sectionLabel} accessibilityRole="header">Quick tools</Text>
@@ -1511,6 +1514,8 @@ const styles = StyleSheet.create({
   },
   dashboard: { gap: layout.sectionGap },
   homeHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  homeIdentity: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  homeWordmark: { flexShrink: 1, color: color.textPrimary, fontSize: type.title.fontSize, lineHeight: type.title.lineHeight, fontWeight: '700', letterSpacing: -0.4 },
   bell: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: color.surface, borderWidth: 1, borderColor: color.border },
   bellShape: { width: 18, height: 21, alignItems: 'center', justifyContent: 'flex-end' },
   bellDome: { width: 15, height: 15, borderTopLeftRadius: 9, borderTopRightRadius: 9, borderWidth: 2, borderBottomWidth: 0, borderColor: color.textPrimary },
@@ -1520,6 +1525,7 @@ const styles = StyleSheet.create({
   primaryCardTitle: { color: color.accentInk, fontSize: type.title.fontSize, lineHeight: type.title.lineHeight, fontWeight: '700' },
   primaryCardCopy: { color: color.accentInk, fontSize: type.body.fontSize, lineHeight: type.body.lineHeight },
   cardArrow: { color: color.textPrimary, fontSize: 23, lineHeight: 28 },
+  primaryArrow: { color: color.accentInk, fontSize: 23, lineHeight: 28 },
   sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   link: { color: color.accent, fontSize: type.label.fontSize, lineHeight: type.label.lineHeight, textDecorationLine: 'underline' },
   shortcut: { minHeight: 64, padding: spacing.md, borderRadius: 14, borderWidth: 1, borderColor: color.border, backgroundColor: color.surface, flexDirection: 'row', alignItems: 'center', gap: spacing.md },

@@ -89,7 +89,7 @@ vi.mock('../components/SecondaryButton', async () => {
     ReactModule.createElement(Pressable, { onPress, disabled, accessibilityRole: 'button', accessibilityLabel: label }, ReactModule.createElement(Text, null, label)) };
 });
 vi.mock('../components/QueuePanel', () => ({ QueuePanel: () => null }));
-vi.mock('../components/BrandHeader', () => ({ BrandHeader: () => null }));
+vi.mock('../components/BrandHeader', () => ({ BrandHeader: () => null, BrandMark: () => null }));
 vi.mock('../components/Banner', () => ({ Banner: () => null }));
 vi.mock('../components/ConfirmDialog', () => ({ ConfirmDialog: () => null }));
 vi.mock('../components/ConversionSummary', () => ({ ConversionSummary: () => null }));

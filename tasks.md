@@ -8,7 +8,7 @@
 
 ## Current continuation (2026-10-30)
 
-- **Native build:** The fresh short-path build at `C:\t` completed successfully for `armeabi-v7a` with one Gradle worker and CMake parallelism 1 (574 actionable tasks; Ninja passed the shortened-object-path gate). The final debug APK is `C:\t\android\app\build\outputs\apk\debug\app-debug.apk`. The phone `R58T402DKYB` disconnected before this final APK could be installed; no final-APK phone acceptance is claimed.
+- **Native build and install:** The fresh short-path build at `C:\t` completed successfully for `armeabi-v7a` with one Gradle worker and CMake parallelism 1 (574 actionable tasks; Ninja passed the shortened-object-path gate). Installed the fresh debug APK at `C:\t\android\app\build\outputs\apk\debug\app-debug.apk` on `R58T402DKYB`. Expo initially bound Metro to IPv6 `::1`, while ADB reverse uses IPv4 `127.0.0.1`; restarting with `--host lan` bound `0.0.0.0` and allowed the app bundle to load. The app launched and Home plus all five labeled tabs rendered. The first device screenshot exposed an oversized Home header; a compact header fix is implemented and passes automated checks, but was not visually rechecked because the phone moved to another active app. Final notification/deep-link and conversion/save/share runtime checks remain open.
 - **Frontend and branding:** Original Transmute assets are configured across launcher, adaptive icon, splash, web favicon, notification, and in-app identity. Final icon padding was included in the successful build. Previous APK runtime checks are recorded historically; final APK visual/runtime checks remain pending.
 
 ## Current execution checklist
@@ -30,7 +30,7 @@
 - [ ] Complete format-by-format and subtitle-by-container device evidence.
 - [ ] Complete TalkBack/200% text, E2E, release artifact, and release-manifest gates.
 
-Current automated evidence: `npm run typecheck` passes; `npm test` passes (30 files, 396 tests); `npx expo export --platform android --output-dir .expo-export-check` bundles successfully (1,374 modules; temporary output removed); `npx expo config --type public --json`, prebuild/codegen path gates, and the full `armeabi-v7a` Gradle build pass. `git -c core.whitespace=cr-at-eol diff --check` passes; CRLF is the established file format. `adb devices -l` is empty, so final-APK install and phone checks remain open; earlier APK checks do not verify the final APK.
+Current automated evidence: `npm run typecheck` passes; `npm test` passes (30 files, 396 tests); `npx expo export --platform android --output-dir .expo-export-check` bundles successfully (1,374 modules; temporary output removed); `npx expo config --type public --json`, prebuild/codegen path gates, and the full `armeabi-v7a` Gradle build pass. `git -c core.whitespace=cr-at-eol diff --check` passes; CRLF is the established file format. The final APK is installed and Home/tabs startup were observed on the phone. Notification open/background/cold launches, tab/back interaction, conversion/save/share on this final UI, and the compact header after its last fix remain unverified on-device.
 
 ## Phase objective and links
 
