@@ -5,6 +5,10 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$expectedRoot = 'C:\t'
+if (-not [string]::Equals($repoRoot, $expectedRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+  throw "Run the native build from $expectedRoot to keep generated CMake paths below Windows' path limit. Current repository: $repoRoot."
+}
 $androidRoot = Join-Path $repoRoot 'android'
 $sdkRoot = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
 $jdkRoot = 'C:\Program Files\Android\Android Studio\jbr'

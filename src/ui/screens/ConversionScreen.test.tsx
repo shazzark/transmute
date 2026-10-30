@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   prepareSource: vi.fn(),
   push: vi.fn(),
   replace: vi.fn(),
+  pathname: '/convert',
 }));
 
 vi.mock('react-native', async () => {
@@ -16,7 +17,14 @@ vi.mock('react-native', async () => {
   const host = (name: string) => ({ children, ...props }: Record<string, unknown>) =>
     ReactModule.createElement(name, props, children as React.ReactNode);
   return {
-    AccessibilityInfo: { announceForAccessibility: vi.fn() },
+    AccessibilityInfo: { announceForAccessibility: vi.fn(), isReduceMotionEnabled: vi.fn(async () => true) },
+    AppState: { addEventListener: vi.fn(() => ({ remove: vi.fn() })) },
+    Animated: {
+      Value: class { setValue() {} interpolate() { return 0; } },
+      View: host('AnimatedView'), Image: host('AnimatedImage'), Text: host('AnimatedText'),
+      timing: () => ({ start: vi.fn() }), sequence: () => ({ start: vi.fn() }), delay: vi.fn(),
+    },
+    Image: host('Image'),
     Platform: { OS: 'android' },
     Pressable: host('Pressable'),
     ScrollView: host('ScrollView'),
@@ -28,9 +36,10 @@ vi.mock('react-native', async () => {
 
 vi.mock('expo-router', () => ({
   useRouter: () => ({ push: mocks.push, replace: mocks.replace }),
-  usePathname: () => '/',
+  usePathname: () => mocks.pathname,
   useRootNavigationState: () => ({ key: 'test-root' }),
 }));
+vi.mock('expo-constants', () => ({ default: { expoConfig: { version: '0.1.0' } } }));
 vi.mock('expo-notifications', () => ({
   AndroidImportance: { LOW: 2 },
   setNotificationChannelAsync: vi.fn(async () => {}),
@@ -80,10 +89,14 @@ vi.mock('../components/SecondaryButton', async () => {
     ReactModule.createElement(Pressable, { onPress, disabled, accessibilityRole: 'button', accessibilityLabel: label }, ReactModule.createElement(Text, null, label)) };
 });
 vi.mock('../components/QueuePanel', () => ({ QueuePanel: () => null }));
+vi.mock('../components/BrandHeader', () => ({ BrandHeader: () => null }));
 vi.mock('../components/Banner', () => ({ Banner: () => null }));
 vi.mock('../components/ConfirmDialog', () => ({ ConfirmDialog: () => null }));
 vi.mock('../components/ConversionSummary', () => ({ ConversionSummary: () => null }));
-vi.mock('../components/PresetSelector', () => ({ PresetSelector: () => null }));
+vi.mock('../components/PresetSelector', async () => {
+  const ReactModule = await import('react');
+  return { PresetSelector: ({ selectedId }: { selectedId: string }) => ReactModule.createElement('PresetSelector', { selectedId }) };
+});
 vi.mock('../components/ProgressPanel', () => ({ ProgressPanel: () => null }));
 vi.mock('../components/SavePanel', () => ({ SavePanel: () => null }));
 vi.mock('../components/SubtitlePanel', () => ({ SubtitlePanel: () => null }));
@@ -102,6 +115,8 @@ describe('ConversionScreen Convert action', () => {
   let finishConversion: ((result: unknown) => void) | undefined;
 
   beforeEach(async () => {
+    mocks.pathname = '/convert';
+    mocks.push.mockClear();
     mocks.pickSourceFiles.mockReset().mockResolvedValue({
       status: 'picked',
       sources: [{ path: '/cache/input.mp4', name: 'input.mp4', sizeBytes: 1024, mimeType: 'video/mp4' }],
@@ -125,5 +140,24 @@ describe('ConversionScreen Convert action', () => {
     expect(mocks.runConversion).toHaveBeenCalledTimes(1);
     expect(mocks.runConversion).toHaveBeenCalledWith(expect.objectContaining({ source: expect.objectContaining({ name: 'input.mp4' }) }));
     await act(async () => { finishConversion?.({ status: 'done', summary: null, outputPath: '/cache/output.mp4', failure: null }); });
+  });
+
+  it('routes Home shortcuts to Convert with their matching output mode selected', async () => {
+    mocks.pathname = '/';
+    await act(async () => { renderer = TestRenderer.create(React.createElement(ConversionScreen)); });
+    const audio = button(renderer, 'Extract audio');
+    await act(async () => { audio?.props.onPress(); });
+    expect(mocks.push).toHaveBeenCalledWith('/convert');
+    mocks.pathname = '/convert';
+    await act(async () => { renderer.update(React.createElement(ConversionScreen)); });
+    expect(renderer.root.findAll((node) => String(node.type) === 'PresetSelector')[0]?.props.selectedId).toBe('mp3');
+
+    mocks.pathname = '/';
+    await act(async () => { renderer.update(React.createElement(ConversionScreen)); });
+    const video = button(renderer, 'Video conversion');
+    await act(async () => { video?.props.onPress(); });
+    mocks.pathname = '/convert';
+    await act(async () => { renderer.update(React.createElement(ConversionScreen)); });
+    expect(renderer.root.findAll((node) => String(node.type) === 'PresetSelector')[0]?.props.selectedId).toBe('mp4');
   });
 });

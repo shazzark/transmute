@@ -40,9 +40,25 @@
       [
         "expo-notifications",
         {
-          "enableRemoteNotifications": false
+          "enableRemoteNotifications": false,
+          "icon": "./assets/notification-icon.png",
+          "color": "#63E6CE"
         }
       ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "backgroundColor": "#0E1116",
+          "dark": {
+            "image": "./assets/splash.png",
+            "backgroundColor": "#0E1116"
+          }
+        }
+      ],
+      "./plugins/withShortSafeAreaBuildDirectory",
       "munim-ffmpeg",
       "./plugins/withReleaseNoInternet",
       [

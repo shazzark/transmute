@@ -13,6 +13,8 @@ export const color = {
   textPrimary: '#E6EDF3',
   textSecondary: '#98A2B3',
   accent: '#4C8DFF',
+  brandMint: '#63E6CE',
+  brandAmber: '#FFB965',
   /** Text and icons on the accent fill; white would fail contrast. */
   accentInk: '#06131F',
   danger: '#FF6B6B',

@@ -1,15 +1,17 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 
 import { color, radius, spacing, type } from '../tokens';
 
-/** A small, native mark that echoes a media frame changing into a new format. */
+/** The shared image mark keeps the in-app identity aligned with installed app branding. */
 export function BrandMark() {
   return (
     <View accessible={false} style={styles.mark}>
-      <View style={styles.frame}>
-        <View style={styles.play} />
-      </View>
-      <View style={styles.transform} />
+      <Image
+        accessible={false}
+        source={require('../../../assets/brand-mark.png')}
+        style={styles.logo}
+        resizeMode="contain"
+      />
     </View>
   );
 }
@@ -56,35 +58,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  frame: {
-    width: 25,
-    height: 19,
-    borderWidth: 2,
-    borderColor: color.accent,
-    borderRadius: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  play: {
-    width: 0,
-    height: 0,
-    marginLeft: 2,
-    borderTopWidth: 5,
-    borderBottomWidth: 5,
-    borderLeftWidth: 7,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: color.accent,
-  },
-  transform: {
-    position: 'absolute',
-    right: 7,
-    bottom: 8,
-    width: 8,
-    height: 2,
-    backgroundColor: color.success,
-    transform: [{ rotate: '-35deg' }],
-  },
+  logo: { width: 42, height: 42 },
   wordmark: {
     color: color.textPrimary,
     fontSize: type.title.fontSize,

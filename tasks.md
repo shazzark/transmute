@@ -4,14 +4,17 @@
 >
 > **Document rules:** `[Confirmed]`/`[Inferred]`/`[Recommended]`/`[Open question]` as defined in `project-brief.md`. T-01â€“T-13 are historical Phase 1 records; current cross-phase execution status is maintained below and in `implementation-plan.md`.
 
-**Status:** Authorized execution through Phase 7; earlier phases have open evidence gaps | **Owner:** `shazzark` | **Updated:** 2026-10-29
+**Status:** Authorized execution through Phase 7; earlier phases have open evidence gaps | **Owner:** `shazzark` | **Updated:** 2026-10-30
 
 ## Current continuation (2026-10-30)
 
-- **Native build:** Fresh prebuild and Gradle configuration succeeded, then Ninja failed because a generated object path exceeds Windows' 260-character limit. A direct mapping of the repository to `T:\` fails Expo package discovery: Node cannot enumerate `T:\`, although PowerShell sees the mapped files. Mapping the parent to `T:\` and using `T:\transmute` makes package discovery and `expo prebuild --clean` succeed, but Gradle/codegen then mixes `T:\transmute` and canonical `C:\Users\chido\Developer\transmute` paths and fails with “this and base files have different roots.” The script checks package discovery from the real repository path and runs clean prebuild before Gradle; `-PrebuildOnly` stops before native compilation. The Node preflight succeeds here, but Expo clean prebuild hits `EPERM` unlinking an ignored generated Gradle report in this shell, so its fresh validation must be run in normal PowerShell. The script retains verified Android Studio JDK 21.0.9, one Gradle worker, CMake parallelism 1, and `armeabi-v7a`. An attempted `CMAKE_OBJECT_PATH_MAX=200` config was accepted by CMake but did not shorten the offending Ninja object path, so that change was removed. `adb devices -l` lists no attached device.
-- **Frontend:** Added a shared Transmute identity header and a local-processing indicator. Automated checks are independent of Android/native/device checks; neither phone launch nor notification/conversion acceptance is closed by UI checks.
+- **Native build:** The fresh short-path build at `C:\t` completed successfully for `armeabi-v7a` with one Gradle worker and CMake parallelism 1 (574 actionable tasks; Ninja passed the shortened-object-path gate). The final debug APK is `C:\t\android\app\build\outputs\apk\debug\app-debug.apk`. The phone `R58T402DKYB` disconnected before this final APK could be installed; no final-APK phone acceptance is claimed.
+- **Frontend and branding:** Original Transmute assets are configured across launcher, adaptive icon, splash, web favicon, notification, and in-app identity. Final icon padding was included in the successful build. Previous APK runtime checks are recorded historically; final APK visual/runtime checks remain pending.
 
 ## Current execution checklist
+
+- [x] **Additional approved follow-up — persistent navigation, animated introduction, and Home dashboard:** Implemented five Expo Router tabs above a root-mounted conversion controller, live queue-count badge, one-time cold-Home logo assembly with reduced-motion and deep-link handling, and a concise dashboard with working video, MP3 extraction, and subtitle-workflow shortcuts. TypeScript, automated tests, and the Android JS bundle pass.
+- [x] **Follow-up acceptance details — implementation:** Added session-only activity from real complete/failed/cancelled/recovered-interruption state (no unread tracking), notification permission status and system-settings action, app version/About, offline/history explanation, and license navigation. Added reduced-motion handling, sequential entrances, press feedback, and tab-bar content clearance.
 
 - [x] Reproduce and fix queue startup being blocked on notification permission.
 - [x] Add rapid-start guard, notification destination validation, and interruption cleanup tests.
@@ -21,12 +24,13 @@
 - [x] Render queue jobs through a bounded-window `FlatList`; the 20-row configuration test passes.
 - [ ] Verify 20-row responsiveness on the device.
 - [x] Add rendered UI coverage proving the visible Convert button starts one runner despite rapid duplicate taps.
-- [ ] Add rendered navigation ownership and save/share lifecycle coverage.
+- [x] Add root-controller mount lifecycle, intro/deep-link priority, queue-badge lifecycle, and Home audio/video preselection tests; conversion start guard still passes.
+- [ ] Verify tab/back behavior, notifications in open/background/cold launch, visual motion, and safe-area layout on the physical phone; final APK is not installed.
 - [ ] Verify native builds/manifests, real device notifications/deep links/cancellation, conversions, and playback.
 - [ ] Complete format-by-format and subtitle-by-container device evidence.
 - [ ] Complete TalkBack/200% text, E2E, release artifact, and release-manifest gates.
 
-Current automated evidence: `npx tsc --noEmit`; `npx vitest run` (27 files, 389 tests); `npx expo config --type public`; `npx expo prebuild --platform android`. Device access is currently blocked because `adb` cannot create `\\.android` in this shell. Detailed phase evidence and exact remaining checks are in `implementation-plan.md`.
+Current automated evidence: `npm run typecheck` passes; `npm test` passes (30 files, 396 tests); `npx expo export --platform android --output-dir .expo-export-check` bundles successfully (1,374 modules; temporary output removed); `npx expo config --type public --json`, prebuild/codegen path gates, and the full `armeabi-v7a` Gradle build pass. `git -c core.whitespace=cr-at-eol diff --check` passes; CRLF is the established file format. `adb devices -l` is empty, so final-APK install and phone checks remain open; earlier APK checks do not verify the final APK.
 
 ## Phase objective and links
 

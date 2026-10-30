@@ -222,6 +222,7 @@ const styles = StyleSheet.create({
   panel: {
     gap: spacing.sm,
     padding: spacing.md,
+    paddingBottom: 120,
   },
   list: {
     flex: 1,

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { AccessibilityInfo, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Animated, AppState, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import * as Sharing from 'expo-sharing';
 import { usePathname, useRootNavigationState, useRouter } from 'expo-router';
@@ -16,6 +17,7 @@ import {
 import { saveOutput } from '../../application/saveOutput';
 import { decideBatchStart } from '../../application/batchStart';
 import { notificationDestination } from '../../application/notificationDestination';
+import { shouldPlayOpeningIntro } from '../../application/introLaunch';
 import { recoverInterruptedJob } from '../../application/recoverInterrupted';
 import {
   createNotificationPublisher,
@@ -75,6 +77,7 @@ import { SecondaryButton } from '../components/SecondaryButton';
 import { SubtitlePanel } from '../components/SubtitlePanel';
 import { VideoPreviewCard, type PreviewState } from '../components/VideoPreviewCard';
 import { color, layout, spacing, type } from '../tokens';
+import { updateQueueBadge } from '../navigation/queueBadge';
 
 /** Shown once when Android 13+ notification permission is refused (TR-29). */
 const NOTIFICATION_UNAVAILABLE =
@@ -82,6 +85,8 @@ const NOTIFICATION_UNAVAILABLE =
 
 /** Which confirmation dialog is open, if any. */
 type Confirmation = 'job' | 'all';
+
+let introAlreadyShown = false;
 
 /**
  * The conversion screen: pick several files, convert them one after another.
@@ -106,9 +111,12 @@ export function ConversionScreen(): React.JSX.Element {
   const rootNavigationState = useRootNavigationState();
   const detailsId = pathname.startsWith('/results/') ? pathname.slice('/results/'.length) : null;
   const showHome = pathname === '/' || pathname === '/index';
+  const showConvert = pathname === '/convert';
   const showQueue = pathname === '/queue';
   const showResults = pathname === '/results' || detailsId !== null;
   const showNotices = pathname === '/notices';
+  const showActivity = pathname === '/activity';
+  const showSettings = pathname === '/settings';
   const [state, dispatch] = useReducer(jobReducer, initialJobState);
   const [queue, queueDispatch] = useReducer(queueReducer, initialQueueState);
   const [saveState, saveDispatch] = useReducer(saveReducer, initialSaveState);
@@ -138,6 +146,10 @@ export function ConversionScreen(): React.JSX.Element {
    * conversion path still names any missing codec.
    */
   const [buildEncoders, setBuildEncoders] = useState<readonly string[] | null>(null);
+  const [notificationPermission, setNotificationPermission] = useState('Checking…');
+  const [introVisible, setIntroVisible] = useState(false);
+  const [introReducedMotion, setIntroReducedMotion] = useState(false);
+  const introPath = useRef(pathname);
 
   const cancelSignal = useRef<CancelSignal>({ cancelled: false });
   /** Guards the picker and the subtitle tools, which must not overlap. */
@@ -818,6 +830,48 @@ export function ConversionScreen(): React.JSX.Element {
               ? 'Wait for interrupted-file cleanup before converting.'
             : undefined;
 
+  useEffect(() => {
+    updateQueueBadge(counts.queued + counts.converting);
+  }, [counts.converting, counts.queued]);
+
+  useEffect(() => {
+    let active = true;
+    const refresh = () => {
+      void Notifications.getPermissionsAsync().then((permission) => {
+        if (active) setNotificationPermission(permission.granted ? 'Allowed' : permission.status === 'undetermined' ? 'Not asked' : 'Off');
+      }).catch(() => { if (active) setNotificationPermission('Unavailable'); });
+    };
+    refresh();
+    const subscription = AppState.addEventListener('change', (stateName) => { if (stateName === 'active') refresh(); });
+    return () => { active = false; subscription.remove(); };
+  }, []);
+
+  // Show the assembly animation only on a normal cold launch; notification launches skip it.
+  useEffect(() => {
+    if (introAlreadyShown) return;
+    introAlreadyShown = true;
+    let active = true;
+    let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
+    void (async () => {
+      const response = await Notifications.getLastNotificationResponseAsync().catch(() => null);
+      if (!active || !shouldPlayOpeningIntro(introPath.current, response?.notification.request.content.data)) return;
+      const reducedMotion = await AccessibilityInfo.isReduceMotionEnabled().catch(() => true);
+      if (!active) return;
+      setIntroReducedMotion(reducedMotion);
+      setIntroVisible(true);
+      const duration = reducedMotion ? 350 : 1550;
+      fallbackTimer = setTimeout(() => { if (active) setIntroVisible(false); }, duration + 300);
+    })();
+    return () => {
+      active = false;
+      if (fallbackTimer !== undefined) clearTimeout(fallbackTimer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (pathname !== '/' && pathname !== '/index') setIntroVisible(false);
+  }, [pathname]);
+
   return (
     <View style={styles.screen}>
       {showQueue ? (
@@ -838,23 +892,6 @@ export function ConversionScreen(): React.JSX.Element {
                   Convert videos into another format â€” or take out just the audio â€” on this device.
                   Nothing is uploaded.
                 </Text>
-              </View>
-              <View style={styles.navigation} accessibilityRole="tablist">
-                {([
-                  ['/', 'Convert', showHome],
-                  ['/queue', `Queue${counts.queued + counts.converting ? ` (${counts.queued + counts.converting})` : ''}`, showQueue],
-                  ['/results', `Results${counts.complete ? ` (${counts.complete})` : ''}`, showResults],
-                ] as const).map(([path, label, selected]) => (
-                  <Pressable
-                    key={path}
-                    onPress={() => router.push(path as never)}
-                    accessibilityRole="tab"
-                    accessibilityState={{ selected }}
-                    style={[styles.navTab, selected && styles.navTabSelected]}
-                  >
-                    <Text style={[styles.navText, selected && styles.navTextSelected]}>{label}</Text>
-                  </Pressable>
-                ))}
               </View>
               {notificationNotice !== null ? (
                 <Banner variant="info" title="No progress notification" message={notificationNotice} />
@@ -883,33 +920,27 @@ export function ConversionScreen(): React.JSX.Element {
       ) : (
       <ScrollView contentContainerStyle={styles.content} style={styles.scroll}>
         <View style={styles.inner}>
-          <View style={styles.header}>
+          {showHome ? (
+            <HomeDashboard
+              queue={queue}
+              running={running}
+              onConvert={() => router.push('/convert' as never)}
+              onVideo={() => { handleSelectPreset('mp4'); router.push('/convert' as never); }}
+              onAudio={() => { handleSelectPreset('mp3'); router.push('/convert' as never); }}
+              onSubtitles={() => { handleSelectPreset('mp4'); router.push('/convert' as never); }}
+              onActivity={() => router.push('/activity' as never)}
+              onQueue={() => router.push('/queue' as never)}
+              onResults={() => router.push('/results' as never)}
+            />
+          ) : null}
+          {showConvert ? <View style={styles.header}>
             <BrandHeader />
             <Text style={styles.subtitle} allowFontScaling>
-              Convert videos into another format — or take out just the audio — on this device.
-              Nothing is uploaded.
+              Convert video or extract audio on this device. Nothing is uploaded.
             </Text>
-          </View>
+          </View> : null}
 
-          <View style={styles.navigation} accessibilityRole="tablist">
-            {([
-              ['/', 'Convert', showHome],
-              ['/queue', `Queue${counts.queued + counts.converting ? ` (${counts.queued + counts.converting})` : ''}`, showQueue],
-              ['/results', `Results${counts.complete ? ` (${counts.complete})` : ''}`, showResults],
-            ] as const).map(([path, label, selected]) => (
-              <Pressable
-                key={path}
-                onPress={() => router.push(path as never)}
-                accessibilityRole="tab"
-                accessibilityState={{ selected }}
-                style={[styles.navTab, selected && styles.navTabSelected]}
-              >
-                <Text style={[styles.navText, selected && styles.navTextSelected]}>{label}</Text>
-              </Pressable>
-            ))}
-          </View>
-
-          {showHome ? <View style={styles.section}>
+          {showConvert ? <View style={styles.section}>
             <Text style={styles.sectionLabel} allowFontScaling accessibilityRole="header">
               Source files
             </Text>
@@ -939,7 +970,7 @@ export function ConversionScreen(): React.JSX.Element {
             ) : null}
           </View> : null}
 
-          {showHome && pickFailure !== null ? (
+          {showConvert && pickFailure !== null ? (
             <Banner
               variant="error"
               title={pickFailure.title}
@@ -949,7 +980,7 @@ export function ConversionScreen(): React.JSX.Element {
             />
           ) : null}
 
-          {showHome && recoveryNotice !== null ? (
+          {showConvert && recoveryNotice !== null ? (
             <Banner variant="warning" title="Interrupted conversion" message={recoveryNotice} />
           ) : null}
 
@@ -970,7 +1001,7 @@ export function ConversionScreen(): React.JSX.Element {
             <Banner variant="info" title="No progress notification" message={notificationNotice} />
           ) : null}
 
-          {showHome ? <View style={styles.section}>
+          {showConvert ? <View style={styles.section}>
             <Text style={styles.sectionLabel} allowFontScaling accessibilityRole="header">
               Output format
             </Text>
@@ -998,7 +1029,7 @@ export function ConversionScreen(): React.JSX.Element {
             ) : null}
           </View> : null}
 
-          {showHome && previewJob !== null && state.summary ? (
+          {showConvert && previewJob !== null && state.summary ? (
             <ConversionSummary
               sourceName={previewJob.source.name}
               summary={state.summary}
@@ -1006,7 +1037,7 @@ export function ConversionScreen(): React.JSX.Element {
             />
           ) : null}
 
-          {showHome && previewJob !== null && state.source && state.summary ? (
+          {showConvert && previewJob !== null && state.source && state.summary ? (
             <SubtitlePanel
               availability={subtitleAvailability}
               state={subtitles}
@@ -1021,6 +1052,53 @@ export function ConversionScreen(): React.JSX.Element {
               onExtract={handleExtract}
               onSaveSubtitles={handleSaveSubtitles}
             />
+          ) : null}
+
+          {showActivity ? (
+            <View style={styles.section}>
+              <Text style={styles.title} accessibilityRole="header" allowFontScaling>Notifications</Text>
+              <Text style={styles.caption} allowFontScaling>Conversion activity from this app session. It clears when Transmute restarts.</Text>
+              {recoveryNotice !== null ? (
+                <View style={styles.activityRow}>
+                  <Text style={styles.resultTitle}>Interrupted</Text>
+                  <Text style={styles.caption}>{recoveryNotice}</Text>
+                </View>
+              ) : null}
+              {queue.jobs.filter((job) => ['complete', 'failed', 'cancelled'].includes(job.status)).slice().reverse().map((job) => (
+                <Pressable
+                  key={job.id}
+                  style={styles.activityRow}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${job.status === 'complete' ? 'Completed' : job.status === 'failed' ? 'Failed' : 'Cancelled'}: ${job.source.name}`}
+                  onPress={() => job.status === 'complete' ? (setFocusId(job.id), router.push(`/results/${job.id}` as never)) : router.push('/queue' as never)}
+                >
+                  <Text style={styles.resultTitle}>{job.status === 'complete' ? 'Completed' : job.status === 'failed' ? 'Failed' : 'Cancelled'}</Text>
+                  <Text style={styles.caption}>{job.source.name}</Text>
+                  {job.failure ? <Text style={styles.caption}>{job.failure.message}</Text> : null}
+                </Pressable>
+              ))}
+              {recoveryNotice === null && !queue.jobs.some((job) => ['complete', 'failed', 'cancelled'].includes(job.status)) ? (
+                <Text style={styles.caption}>Completed or failed conversions will appear here.</Text>
+              ) : null}
+              <SecondaryButton label="Back" onPress={() => router.back()} />
+            </View>
+          ) : null}
+
+          {showSettings ? (
+            <View style={styles.section}>
+              <Text style={styles.title} accessibilityRole="header" allowFontScaling>Settings</Text>
+              <View style={styles.activityRow}>
+                <Text style={styles.resultTitle}>Notifications</Text>
+                <Text style={styles.caption}>Permission status: {notificationPermission}</Text>
+                <SecondaryButton label="Open system notification settings" onPress={() => { void Linking.openSettings(); }} />
+              </View>
+              <View style={styles.activityRow}>
+                <Text style={styles.resultTitle}>About Transmute</Text>
+                <Text style={styles.caption}>Version {Constants.expoConfig?.version ?? 'unknown'}</Text>
+                <Text style={styles.caption}>Transmute converts video and extracts audio locally on this device. Media files are not uploaded. Results and activity stay in memory for this app session and clear when it restarts.</Text>
+              </View>
+              <SecondaryButton label="Third-party notices and licenses" onPress={() => router.push('/notices' as never)} />
+            </View>
           ) : null}
 
           {showQueue && running !== null ? (
@@ -1099,11 +1177,11 @@ export function ConversionScreen(): React.JSX.Element {
               <Text style={styles.resultTitle}>Bundled native components</Text>
               <Text style={styles.caption}>FFmpeg (LGPLv3); LAME and FriBidi (LGPL 2.x); Opus and libvpx (BSD 3-Clause); dav1d and libaom (BSD 2-Clause; libaom also has a patent license); OpenH264 (BSD); libass (ISC); FreeType (FTL); HarfBuzz (MIT); fontconfig (MIT-style); expat (MIT); mbedTLS (Apache 2.0); and zlib (zlib license). The repository notice records upstream terms; a line-by-line audit remains a release gate.</Text>
               <Text style={styles.caption}>The app performs conversions locally. It does not contact a server to fetch notices or media.</Text>
-              <SecondaryButton label="Back to Convert" onPress={() => router.replace('/' as never)} />
+              <SecondaryButton label="Back to Settings" onPress={() => router.replace('/settings' as never)} />
             </View>
           ) : null}
 
-          {showHome ? <SecondaryButton label="Open-source notices" onPress={() => router.push('/notices' as never)} /> : null}
+          {showConvert ? <SecondaryButton label="Open-source notices" onPress={() => router.push('/notices' as never)} /> : null}
 
           {showQueue && batchSummary !== null && running === null ? (
             <Banner
@@ -1120,7 +1198,7 @@ export function ConversionScreen(): React.JSX.Element {
       )}
 
       {/* Without a file there is nothing to convert, so the action bar stays away. */}
-      {showHome && queue.jobs.length > 0 ? (
+      {showConvert && queue.jobs.length > 0 ? (
         <View style={styles.actionBar}>
           {running !== null ? (
             <SecondaryButton
@@ -1177,6 +1255,147 @@ export function ConversionScreen(): React.JSX.Element {
         onCancel={() => setConfirmation(null)}
         destructive
       />
+      {introVisible ? <IntroOverlay reducedMotion={introReducedMotion} /> : null}
+    </View>
+  );
+}
+
+function HomeDashboard({
+  queue,
+  running,
+  onConvert,
+  onVideo,
+  onAudio,
+  onSubtitles,
+  onActivity,
+  onQueue,
+  onResults,
+}: {
+  readonly queue: QueueState;
+  readonly running: QueueJob | null;
+  readonly onConvert: () => void;
+  readonly onVideo: () => void;
+  readonly onAudio: () => void;
+  readonly onSubtitles: () => void;
+  readonly onActivity: () => void;
+  readonly onQueue: () => void;
+  readonly onResults: () => void;
+}): React.JSX.Element {
+  const recent = queue.jobs.filter((job) => job.status === 'complete' && job.output !== null).slice(-3).reverse();
+  return (
+    <View style={styles.dashboard}>
+      <Entrance delay={0}><View style={styles.homeHeader}>
+        <BrandHeader />
+        <Pressable onPress={onActivity} accessibilityRole="button" accessibilityLabel="Open notifications and conversion activity" style={({ pressed }) => [styles.bell, pressed && styles.pressed]}>
+          <View accessible={false} style={styles.bellShape}><View style={styles.bellDome} /><View style={styles.bellClapper} /></View>
+        </Pressable>
+      </View></Entrance>
+      <Entrance delay={75}><View style={styles.introCopy}>
+        <Text style={styles.title} accessibilityRole="header" allowFontScaling>Media tools, kept local.</Text>
+        <Text style={styles.subtitle} allowFontScaling>Convert video, extract audio, and work with subtitles on this device. Your files stay on your phone.</Text>
+      </View></Entrance>
+      <Entrance delay={150}><Pressable onPress={onConvert} accessibilityRole="button" accessibilityLabel="Convert files" style={({ pressed }) => [styles.primaryCard, pressed && styles.pressed]}>
+        <Text style={styles.primaryCardTitle}>Convert files</Text>
+        <Text style={styles.primaryCardCopy}>Choose media and set an output format</Text>
+        <Text style={styles.cardArrow} accessible={false}>→</Text>
+      </Pressable></Entrance>
+      <Entrance delay={225}><View style={styles.section}>
+        <Text style={styles.sectionLabel} accessibilityRole="header">Quick tools</Text>
+        <Shortcut label="Video conversion" detail="Choose a video and output format" icon="▶" onPress={onVideo} />
+        <Shortcut label="Extract audio" detail="Start with MP3 audio output" icon="♫" onPress={onAudio} />
+        <Shortcut label="Subtitle tools" detail="Choose a video to view its subtitle options" icon="CC" onPress={onSubtitles} />
+      </View></Entrance>
+      {running ? (
+        <Pressable onPress={onQueue} accessibilityRole="button" accessibilityLabel="View the active conversion in Queue" style={styles.activityRow}>
+          <Text style={styles.resultKind}>IN PROGRESS</Text>
+          <Text style={styles.resultTitle} numberOfLines={2}>{running.source.name}</Text>
+          <Text style={styles.caption}>{running.indeterminate ? 'Converting…' : `${running.progress}% complete`}</Text>
+        </Pressable>
+      ) : null}
+      <View style={styles.section}>
+        <View style={styles.sectionHeading}>
+          <Text style={styles.sectionLabel} accessibilityRole="header">Recent results</Text>
+          {recent.length > 0 ? <Pressable onPress={onResults} accessibilityRole="button" accessibilityLabel="View all results"><Text style={styles.link}>View all</Text></Pressable> : null}
+        </View>
+        {recent.length === 0 ? (
+          <Text style={styles.caption}>Your converted files will appear here for this session.</Text>
+        ) : recent.map((job) => (
+          <Pressable key={job.id} onPress={onResults} accessibilityRole="button" style={styles.recentRow}>
+            <Text style={styles.resultTitle} numberOfLines={1}>{job.output?.name}</Text>
+            <Text style={styles.caption}>Ready to save or share</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function Shortcut({ label, detail, icon, onPress }: { label: string; detail: string; icon: string; onPress: () => void }): React.JSX.Element {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => [styles.shortcut, pressed && styles.pressed]}>
+      <Text style={styles.shortcutIcon} accessible={false}>{icon}</Text>
+      <View style={styles.shortcutCopy}>
+        <Text style={styles.resultTitle} allowFontScaling>{label}</Text>
+        <Text style={styles.caption} allowFontScaling>{detail}</Text>
+      </View>
+      <Text style={styles.cardArrow} accessible={false}>›</Text>
+    </Pressable>
+  );
+}
+
+function Entrance({ children, delay }: { readonly children: React.ReactNode; readonly delay: number }): React.JSX.Element {
+  const entrance = React.useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    let active = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then((reduced) => {
+      if (!active) return;
+      if (reduced) {
+        entrance.setValue(1);
+        return;
+      }
+      Animated.sequence([
+        Animated.delay(delay),
+        Animated.timing(entrance, { toValue: 1, duration: 180, useNativeDriver: true }),
+      ]).start();
+    }).catch(() => entrance.setValue(1));
+    return () => { active = false; };
+  }, [delay, entrance]);
+  return <Animated.View style={{ opacity: entrance, transform: [{ translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }}>{children}</Animated.View>;
+}
+
+/** The animated pieces assemble over a static copy of the established brand mark. */
+function IntroOverlay({ reducedMotion }: { readonly reducedMotion: boolean }): React.JSX.Element {
+  const progress = React.useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(progress, { toValue: 1, duration: reducedMotion ? 350 : 1550, useNativeDriver: true }).start();
+  }, [progress, reducedMotion]);
+  const pieceStyle = (dx: number, dy: number, rotation = '0deg') => ({
+    opacity: progress.interpolate({ inputRange: [0, 0.65, 0.78], outputRange: [0.15, 1, 0] }),
+    transform: [
+      { translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [dx, 0] }) },
+      { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [dy, 0] }) },
+      { rotate: rotation },
+    ],
+  });
+  const finalMarkOpacity = reducedMotion
+    ? progress.interpolate({ inputRange: [0, 1], outputRange: [0, 1] })
+    : progress.interpolate({ inputRange: [0.5, 0.78, 1], outputRange: [0, 1, 1] });
+  const wordmarkOpacity = reducedMotion
+    ? progress.interpolate({ inputRange: [0, 1], outputRange: [0, 1] })
+    : progress.interpolate({ inputRange: [0.78, 1], outputRange: [0, 1] });
+  return (
+    <View style={styles.introOverlay} accessible accessibilityViewIsModal accessibilityLabel="Transmute is starting">
+      <View style={styles.markCanvas}>
+        {!reducedMotion ? <>
+          <Animated.View style={[styles.logoFrame, pieceStyle(-36, -24)]} />
+          <Animated.View style={[styles.logoPlay, pieceStyle(0, 38)]} />
+          <Animated.View style={[styles.logoArrow, pieceStyle(36, 22, '28deg')]} />
+          <Animated.View style={[styles.logoArrowHeadOne, pieceStyle(-18, 20, '-50deg')]} />
+          <Animated.View style={[styles.logoArrowHeadTwo, pieceStyle(-18, 20, '56deg')]} />
+        </> : null}
+        <Animated.Image source={require('../../../assets/brand-mark.png')} resizeMode="contain" style={[styles.assembledMark, { opacity: finalMarkOpacity }]} />
+      </View>
+      <Animated.Text style={[styles.introWordmark, { opacity: wordmarkOpacity }]}>Transmute</Animated.Text>
     </View>
   );
 }
@@ -1191,7 +1410,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: layout.screenPadding,
-    paddingBottom: spacing.xxxl,
+    paddingBottom: 120,
   },
   inner: {
     width: '100%',
@@ -1285,8 +1504,37 @@ const styles = StyleSheet.create({
   actionBar: {
     gap: spacing.sm,
     padding: layout.screenPadding,
+    marginBottom: 94,
     borderTopWidth: 1,
     borderTopColor: color.border,
     backgroundColor: color.bg,
   },
+  dashboard: { gap: layout.sectionGap },
+  homeHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  bell: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: color.surface, borderWidth: 1, borderColor: color.border },
+  bellShape: { width: 18, height: 21, alignItems: 'center', justifyContent: 'flex-end' },
+  bellDome: { width: 15, height: 15, borderTopLeftRadius: 9, borderTopRightRadius: 9, borderWidth: 2, borderBottomWidth: 0, borderColor: color.textPrimary },
+  bellClapper: { width: 19, height: 3, borderRadius: 2, backgroundColor: color.textPrimary, marginTop: 1 },
+  introCopy: { gap: spacing.sm, paddingTop: spacing.sm },
+  primaryCard: { minHeight: 104, borderRadius: 18, backgroundColor: color.accent, padding: spacing.lg, justifyContent: 'center', gap: spacing.xs, position: 'relative' },
+  primaryCardTitle: { color: color.accentInk, fontSize: type.title.fontSize, lineHeight: type.title.lineHeight, fontWeight: '700' },
+  primaryCardCopy: { color: color.accentInk, fontSize: type.body.fontSize, lineHeight: type.body.lineHeight },
+  cardArrow: { color: color.textPrimary, fontSize: 23, lineHeight: 28 },
+  sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  link: { color: color.accent, fontSize: type.label.fontSize, lineHeight: type.label.lineHeight, textDecorationLine: 'underline' },
+  shortcut: { minHeight: 64, padding: spacing.md, borderRadius: 14, borderWidth: 1, borderColor: color.border, backgroundColor: color.surface, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  shortcutIcon: { width: 36, height: 36, textAlign: 'center', textAlignVertical: 'center', color: color.accent, fontSize: 20, lineHeight: 36 },
+  shortcutCopy: { flex: 1, gap: 2 },
+  pressed: { opacity: 0.82, transform: [{ scale: 0.985 }] },
+  activityRow: { gap: spacing.xs, padding: spacing.md, minHeight: 56, borderWidth: 1, borderColor: color.border, borderRadius: 12, backgroundColor: color.surface },
+  recentRow: { minHeight: 54, justifyContent: 'center', gap: spacing.xs, paddingVertical: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.border },
+  introOverlay: { ...StyleSheet.absoluteFill, zIndex: 5, backgroundColor: color.bg, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+  markCanvas: { width: 144, height: 144, position: 'relative' },
+  logoFrame: { position: 'absolute', left: 24, top: 39, width: 68, height: 52, borderWidth: 8, borderColor: color.brandMint, borderRadius: 16 },
+  logoPlay: { position: 'absolute', left: 54, top: 54, width: 0, height: 0, borderTopWidth: 13, borderBottomWidth: 13, borderLeftWidth: 22, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderLeftColor: color.textPrimary },
+  logoArrow: { position: 'absolute', left: 83, top: 82, width: 38, height: 4, borderRadius: 2, backgroundColor: color.brandAmber },
+  logoArrowHeadOne: { position: 'absolute', left: 105, top: 81, width: 17, height: 4, borderRadius: 2, backgroundColor: color.brandAmber },
+  logoArrowHeadTwo: { position: 'absolute', left: 114, top: 82, width: 17, height: 4, borderRadius: 2, backgroundColor: color.brandAmber },
+  assembledMark: { position: 'absolute', width: 144, height: 144, left: 0, top: 0 },
+  introWordmark: { color: color.textPrimary, fontSize: type.title.fontSize, lineHeight: type.title.lineHeight, fontWeight: '700', letterSpacing: 0.2 },
 });

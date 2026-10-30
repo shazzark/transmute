@@ -54,8 +54,8 @@ Code is present across the domain, application, native, and UI layers. Device ac
 | `src/domain` | `presets.ts` (catalogue), `ffmpegCommand.ts` (argv builder), `encoders.ts` (hardware → software preference, NV12 rule, 176×144 minimum), `progress.ts` (statistics → monotonic percent), `probe.ts` (FFprobe report → summary), `naming.ts` (sanitiser, forced extension, ` (2)` collisions), `errors.ts` (stable codes → message + recovery + details), `colour.ts` (WCAG contrast maths) |
 | `src/application` | Job/conversion pipeline, FIFO runner, batch-start decision, save and subtitle use cases, notification publishing, and interrupted recovery |
 | `src/native` | FFmpeg, foreground-service, picker, file/cache recovery, save, and subtitle adapters |
-| `src/ui` | Tokens, grouped preset selector, conversion/queue/results/details views, progress, queue, save/share, and subtitle components |
-| `app` | Expo Router root and route files; `ConversionScreen` stays mounted above the route stack |
+| `src/ui` | Tokens, grouped preset selector, Home/Convert/Queue/Results/Activity/Settings views, progress, save/share, subtitle components, and queue badge store |
+| `app` | Expo Router tab group, secondary stack routes, and root-mounted `ConversionScreen` controller |
 
 **History and cleanup policy:** results and queue state last only for the current process. Successful outputs stay in cache for the session and can be saved or shared. A small app-private marker stores no filename or media metadata; if it remains on next launch, partial job directories are removed and the user is told to add the source again. No database, cache-path history, or job resumption is used.
 
@@ -92,9 +92,9 @@ Code is present across the domain, application, native, and UI layers. Device ac
 
 ## Design system (MVP)
 
-A small, dark-first system for four screens. It is defined here rather than in a separate document because it is one theme and a handful of components; the design-system skill's rules still apply — semantic tokens, behaviour defined with appearance, accessible by default, no component framework built for its own sake.
+A small, dark-first system for five main tabs plus secondary screens. It is defined here rather than in a separate document because it is one theme and a handful of components; the design-system skill's rules still apply — semantic tokens, behaviour defined with appearance, accessible by default, no component framework built for its own sake.
 
-**Visual direction [Recommended]: "instrument panel".** The app is a tool that runs for minutes and is checked at a glance, so the interface behaves like a console rather than a marketing page: flat dark surfaces separated by 1 px borders, one accent colour reserved for the primary action, monospaced-feeling numerals for progress and elapsed time, and no gradients, illustrations, shadows, or decorative icons. This is a deliberate rejection of the generic "purple gradient + centered hero + emoji" default: nothing in it helps a user judge whether a 40-minute conversion is progressing. No brand identity exists in the repository, so this direction needs the owner's approval before it hardens.
+**Visual direction [Confirmed]:** dark, restrained media-tool interface using the Transmute video-frame/play/transform mark, mint and amber mark colors, flat surfaces, borders, and a single blue action accent. The dashboard is concise and sits above the existing conversion workflow. The established identity is used in the native splash, installed-app artwork, notification glyph, favicon, and in-app header.
 
 **Theme scope:** dark only at MVP. A light theme is a later candidate; tokens are semantic so adding one does not require touching components.
 
@@ -109,6 +109,8 @@ A small, dark-first system for four screens. It is defined here rather than in a
 | `color.text.primary` | `#E6EDF3` | Primary copy, file names |
 | `color.text.secondary` | `#98A2B3` | Metadata, timestamps, hints |
 | `color.accent` | `#4C8DFF` | Primary action fill, links, active state |
+| `color.brandMint` | `#63E6CE` | Established Transmute video-frame mark |
+| `color.brandAmber` | `#FFB965` | Established Transmute transform-arrow mark |
 | `color.accent.ink` | `#06131F` | Text/icons **on** the accent fill |
 | `color.danger` | `#FF6B6B` | Errors, destructive confirmation |
 | `color.warning` | `#F5C542` | Warnings (low storage, unsupported preset) |
@@ -162,7 +164,8 @@ Every state above needs a place in the code (`variant`/`status` prop), not an ad
 
 ### Layout and screen composition
 
-- **Converter route (`/`):** source intake and preview, grouped video/audio preset grids, subtitle tools, conversion summary, and a sticky Convert/View Queue action area. Capability or input-stream gaps are shown beside the disabled format.
+- **Home route (`/`):** local-processing introduction, Convert action, working video/audio/subtitle shortcuts, active-job summary, recent session results, and notification activity action.
+- **Convert route (`/convert`):** source intake and preview, grouped video/audio preset grids, subtitle tools, conversion summary, and a sticky Convert/View Queue action area. Capability or input-stream gaps are shown beside the disabled format.
 - **Queue route (`/queue`):** active file and current progress, per-row state, retry, removal of queued rows, and cancellation. A virtualized 20-row list remains an unverified acceptance gap.
 - **Results routes (`/results`, `/results/[id]`):** session-memory success rows with output format, cache path, save and share actions. There is no durable history or in-app playback promise.
 - **Notices route (`/notices`):** application and bundled-native license summary with the repository source/relink route.
@@ -199,4 +202,13 @@ Approver: `shazzark` (owner), pending. Version 0.1, 2026-10-27. This document de
 
 
 
+
+
+## Navigation and launch behavior (2026-10-30)
+
+`app/_layout.tsx` mounts `ConversionScreen` above the Expo Router stack. The controller owns the queue reducer, conversion loop, preset, save state, and current-session results; tab route changes therefore do not unmount or restart conversion work. The `(tabs)` group provides Home, Convert, Queue, Results, and Settings with safe-area-aware labels, icons, selected tint, and a queue badge fed from queued + running jobs. Route content is selected by pathname in the persistent controller so existing conversion callbacks and `/results` notification destinations remain stable. Activity, notices, and result details are secondary stack routes.
+
+The Home dashboard does not duplicate the converter. Its video shortcut opens Convert, audio extraction selects MP3 before opening Convert, and subtitle tools open the existing Convert workflow where choosing a source reveals supported subtitle operations. Activity is derived from completed, failed, cancelled, and recovered-interruption state already held in the controller; it has no unread tracking and is session-only, matching Results. Settings exposes the current notification permission, an Android system-settings action, app version/About, and third-party notices. It adds no notification backend or storage toggles.
+
+The opening sequence runs at most once per process on a normal Home cold launch. The assembled mark transitions to the existing logo artwork and wordmark. Notification data or a non-Home initial route skips it; a route change also dismisses it. Reduced-motion mode uses the short fade, and a timeout is the completion fallback. The configured native splash remains a static mark on the same background. These UI checks do not establish installed-phone visuals or cold/background notification runtime behavior.
 

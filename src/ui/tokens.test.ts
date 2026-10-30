@@ -37,6 +37,8 @@ describe('design token contrast', () => {
       ['text.primary on bg', color.textPrimary, color.bg, 7],
       ['text.secondary on bg', color.textSecondary, color.bg, 4.5],
       ['accent on surface', color.accent, color.surface, 4.5],
+      ['brand mint on bg', color.brandMint, color.bg, 4.5],
+      ['brand amber on bg', color.brandAmber, color.bg, 4.5],
       ['accent.ink on accent', color.accentInk, color.accent, 4.5],
       ['danger on bg', color.danger, color.bg, 4.5],
       ['warning on bg', color.warning, color.bg, 4.5],

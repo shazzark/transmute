@@ -1,0 +1,59 @@
+cmake_minimum_required(VERSION 3.13)
+set(CMAKE_VERBOSE_MAKEFILE on)
+
+get_filename_component(TRANSMUTE_PROJECT_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)
+set(REANIMATED_COMMON_DIR "${TRANSMUTE_PROJECT_ROOT}/node_modules/react-native-reanimated/Common/NativeView")
+set(REANIMATED_SHORT_COMMON_DIR "${TRANSMUTE_PROJECT_ROOT}/r/overwritten/NativeView")
+set(REANIMATED_CODEGEN_DIR "${TRANSMUTE_PROJECT_ROOT}/r/generated/source/codegen/jni")
+set(REANIMATED_CODEGEN_COMPONENTS_DIR "${REANIMATED_CODEGEN_DIR}/react/renderer/components/rnreanimated")
+
+# Copy tracked overwritten sources into the short build tree; configure_file refreshes edits.
+file(GLOB_RECURSE REANIMATED_COMMON_FILES CONFIGURE_DEPENDS LIST_DIRECTORIES false "${REANIMATED_COMMON_DIR}/*")
+foreach(REANIMATED_COMMON_FILE IN LISTS REANIMATED_COMMON_FILES)
+  file(RELATIVE_PATH REANIMATED_RELATIVE_FILE "${REANIMATED_COMMON_DIR}" "${REANIMATED_COMMON_FILE}")
+  get_filename_component(REANIMATED_SHORT_DIRECTORY "${REANIMATED_SHORT_COMMON_DIR}/${REANIMATED_RELATIVE_FILE}" DIRECTORY)
+  file(MAKE_DIRECTORY "${REANIMATED_SHORT_DIRECTORY}")
+  configure_file("${REANIMATED_COMMON_FILE}" "${REANIMATED_SHORT_COMMON_DIR}/${REANIMATED_RELATIVE_FILE}" COPYONLY)
+endforeach()
+
+file(
+  GLOB REANIMATED_CODEGEN_ORIGINAL_SRCS CONFIGURE_DEPENDS
+  "${REANIMATED_CODEGEN_DIR}/*.cpp"
+  "${REANIMATED_CODEGEN_COMPONENTS_DIR}/*.cpp"
+)
+
+set(REANIMATED_CODEGEN_OVERWRITTEN_JNI_DIR "${REANIMATED_SHORT_COMMON_DIR}")
+set(REANIMATED_CODEGEN_OVERWRITTEN_COMPONENTS_DIR "${REANIMATED_CODEGEN_OVERWRITTEN_JNI_DIR}/react/renderer/components/rnreanimated")
+file(
+  GLOB REANIMATED_CODEGEN_OVERWRITTEN_SRCS CONFIGURE_DEPENDS
+  "${REANIMATED_CODEGEN_OVERWRITTEN_JNI_DIR}/*.cpp"
+  "${REANIMATED_CODEGEN_OVERWRITTEN_COMPONENTS_DIR}/*.cpp"
+)
+
+add_library(
+  react_codegen_rnreanimated
+  OBJECT
+  ${REANIMATED_CODEGEN_OVERWRITTEN_SRCS}
+  ${REANIMATED_CODEGEN_ORIGINAL_SRCS}
+)
+
+target_compile_reactnative_options(react_codegen_rnreanimated PRIVATE)
+target_include_directories(
+  react_codegen_rnreanimated
+  PUBLIC
+  "${REANIMATED_CODEGEN_OVERWRITTEN_JNI_DIR}"
+  "${REANIMATED_CODEGEN_OVERWRITTEN_COMPONENTS_DIR}"
+  "${REANIMATED_CODEGEN_DIR}"
+  "${REANIMATED_CODEGEN_COMPONENTS_DIR}"
+)
+
+target_link_libraries(react_codegen_rnreanimated fbjni jsi reactnative)
+target_compile_options(
+  react_codegen_rnreanimated
+  PRIVATE
+  -DLOG_TAG=\"ReactNative\"
+  -fexceptions
+  -frtti
+  -std=c++20
+  -Wall
+)

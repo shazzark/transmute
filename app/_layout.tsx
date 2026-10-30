@@ -13,8 +13,15 @@ export default function RootLayout() {
         <StatusBar style="light" />
         <View style={styles.inset}>
           {/* Keep the conversion controller mounted while the route changes. */}
-          <ConversionScreen />
-          <Stack screenOptions={{ headerShown: false, animation: 'fade', contentStyle: { backgroundColor: 'transparent' } }} />
+          <View pointerEvents="box-none" style={styles.controller}>
+            <ConversionScreen />
+          </View>
+          <Stack screenOptions={{ headerShown: false, animation: 'fade', contentStyle: { backgroundColor: 'transparent' } }}>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="activity" options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="notices" options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="results/[id]" options={{ animation: 'slide_from_right' }} />
+          </Stack>
         </View>
       </View>
     </SafeAreaProvider>
@@ -27,4 +34,5 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: Platform.OS === 'android' ? (NativeStatusBar.currentHeight ?? 0) : 44,
   },
+  controller: StyleSheet.absoluteFill,
 });

@@ -31,6 +31,10 @@ web-build/
 # or native plugins; keep native changes in a local module or config plugin.
 /android/
 /ios/
+/b/
+/g/
+/r/
+/s/
 
 # --- Android build output ---------------------------------------------------
 android/.gradle/
