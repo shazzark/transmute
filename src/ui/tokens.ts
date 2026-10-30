@@ -69,4 +69,5 @@ export const layout = {
   screenPadding: spacing.lg,
   maxContentWidth: 560,
   sectionGap: spacing.xl,
+  tabBarHeight: 62,
 } as const;

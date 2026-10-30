@@ -3,15 +3,15 @@ import { Platform, StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getQueueBadge, subscribeQueueBadge } from '../../src/ui/navigation/queueBadge';
-import { color, spacing, type } from '../../src/ui/tokens';
+import { color, layout, spacing, type } from '../../src/ui/tokens';
 import { useSyncExternalStore } from 'react';
 
 const tabs = [
-  { name: 'index', title: 'Home', icon: '⌂' },
-  { name: 'convert', title: 'Convert', icon: '↻' },
-  { name: 'queue', title: 'Queue', icon: '☷' },
-  { name: 'results', title: 'Results', icon: '▤' },
-  { name: 'settings', title: 'Settings', icon: '⚙' },
+  { name: 'index', title: 'Home', icon: '\u2302' },
+  { name: 'convert', title: 'Convert', icon: '\u21bb' },
+  { name: 'queue', title: 'Queue', icon: '\u2261' },
+  { name: 'results', title: 'Results', icon: '\u25a3' },
+  { name: 'settings', title: 'Settings', icon: '\u2699' },
 ] as const;
 
 /** The root conversion controller stays mounted while this navigator changes tabs. */
@@ -23,7 +23,7 @@ export default function MainTabs() {
       screenOptions={{
         headerShown: false,
         sceneStyle: { backgroundColor: 'transparent' },
-        tabBarStyle: [styles.bar, { height: 62 + insets.bottom, paddingBottom: Math.max(insets.bottom, spacing.xs) }],
+        tabBarStyle: [styles.bar, { height: layout.tabBarHeight + insets.bottom, paddingBottom: Math.max(insets.bottom, spacing.xs) }],
         tabBarItemStyle: styles.item,
         tabBarActiveTintColor: color.accent,
         tabBarInactiveTintColor: color.textSecondary,

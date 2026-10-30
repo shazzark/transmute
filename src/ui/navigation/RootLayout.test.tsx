@@ -14,7 +14,7 @@ vi.mock('react-native', async () => {
     ReactModule.createElement(name, props, children as React.ReactNode);
   return {
     Platform: { OS: 'android' },
-    StatusBar: { currentHeight: 24 },
+    StatusBar: { currentHeight: 99 },
     StyleSheet: { create: (styles: unknown) => styles, absoluteFill: { position: 'absolute' } },
     View: host('View'),
   };
@@ -27,7 +27,10 @@ vi.mock('expo-status-bar', async () => {
 
 vi.mock('react-native-safe-area-context', async () => {
   const ReactModule = await import('react');
-  return { SafeAreaProvider: ({ children }: { children: React.ReactNode }) => ReactModule.createElement('SafeAreaProvider', null, children) };
+  return {
+    SafeAreaProvider: ({ children }: { children: React.ReactNode }) => ReactModule.createElement('SafeAreaProvider', null, children),
+    useSafeAreaInsets: () => ({ top: 24, right: 12, bottom: 32, left: 8 }),
+  };
 });
 
 vi.mock('expo-router', async () => {
@@ -67,6 +70,8 @@ describe('root conversion controller navigation lifecycle', () => {
   it('keeps the controller mounted as the Router stack changes screens', () => {
     act(() => { renderer = TestRenderer.create(React.createElement(RootLayout)); });
     expect(mocks.mounts).toBe(1);
+    const insetView = renderer.root.findAll((node) => String(node.type) === 'View' && Array.isArray(node.props.style) && node.props.style.some((style) => style !== null && typeof style === 'object' && 'paddingTop' in style))[0];
+    expect(insetView?.props.style).toEqual(expect.arrayContaining([expect.objectContaining({ paddingTop: 24, paddingLeft: 8, paddingRight: 12 })]));
 
     mocks.route = '/queue';
     act(() => { renderer.update(React.createElement(RootLayout)); });

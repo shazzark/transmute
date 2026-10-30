@@ -34,6 +34,12 @@ vi.mock('react-native', async () => {
   };
 });
 
+vi.mock('../../../assets/brand-mark.png', () => ({ default: 'brand-mark' }));
+
+vi.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 24, left: 0 }),
+}));
+
 vi.mock('expo-router', () => ({
   useRouter: () => ({ push: mocks.push, replace: mocks.replace }),
   usePathname: () => mocks.pathname,
@@ -102,7 +108,7 @@ vi.mock('../components/SavePanel', () => ({ SavePanel: () => null }));
 vi.mock('../components/SubtitlePanel', () => ({ SubtitlePanel: () => null }));
 vi.mock('../components/VideoPreviewCard', () => ({ VideoPreviewCard: () => null }));
 
-import { ConversionScreen } from './ConversionScreen';
+import { ConversionScreen, IntroOverlay } from './ConversionScreen';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
@@ -111,6 +117,15 @@ function button(renderer: TestRenderer.ReactTestRenderer, label: string) {
 }
 
 describe('ConversionScreen Convert action', () => {
+  it('keeps the opening artwork from blocking Home controls while it animates', () => {
+    let introRenderer: TestRenderer.ReactTestRenderer;
+    act(() => { introRenderer = TestRenderer.create(React.createElement(IntroOverlay, { reducedMotion: true })); });
+    const overlay = introRenderer!.root.findAll((node) => String(node.type) === 'View' && node.props.pointerEvents === 'none');
+    expect(overlay).toHaveLength(1);
+    expect(overlay[0]?.props.accessibilityViewIsModal).toBeUndefined();
+    act(() => introRenderer!.unmount());
+  });
+
   let renderer: TestRenderer.ReactTestRenderer;
   let finishConversion: ((result: unknown) => void) | undefined;
 
