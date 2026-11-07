@@ -180,28 +180,36 @@ The older audit above is retained as historical evidence. This refresh records t
 
 | Phase | Implementation state | Automated evidence | Phone evidence | Open checks |
 |---|---|---|---|---|
-| 1 | MP4 route and device checks remain in scope | 417 tests pass; typecheck passes | Historical MP4 checks remain; current OPUS conversion exercised the picker route, but MP4 conversion was not rerun | Current-route MP4 conversion and remaining device cases |
-| 2 | Output cleanup and cancellation paths implemented; durable copy is chunked and cancellable | Application suite passes; native copy awaits runtime test | Device reports 13 GB free; no storage-filling simulation attempted | Large input, low-space failure, copy cancel and cleanup measurements |
-| 3 | Foreground notification and scoped recovery logic implemented | Notification/recovery tests pass | Current notification/background/force-stop checks await install | Notification controls, background progress and force-stop recovery |
-| 4 | Queue, shared navigation/layout/touch, and bounded 20-row list implemented | 416 tests pass, including 20-row rendering and text preview | Prior Home/tab/Back checks recorded; new playback/20-row check pending | Device navigation during conversion, scrolling, playback, motion/accessibility |
-| 5 | All 10 catalogue audio/video presets remain conditional on encoder detection | Preset, command and probe tests pass | OPUS extraction completed to a Ready 52.2 kB Results file; playback unconfirmed; other enabled formats not run | Probe and playback every remaining enabled format; adjust claims to actual result |
-| 6 | SRT/VTT/ASS input validation; ASS style preserved only in MKV; SRT/VTT extraction | Subtitle and pipeline tests pass | New subtitle-container evidence pending | Device embed/extract, inspect streams/content, playback/preview |
+| 1 | MP4 route and device checks remain in scope | 417 tests pass; typecheck passes | Current route converted derived synthetic input to MP4 and playback passed; original 160×144 input produced the exact encoder minimum error | Remaining source/device cases and broader Phase 1 acceptance |
+| 2 | Output cleanup and cancellation paths implemented; durable copy is chunked and cancellable | Application suite passes | Two queued test rows were safely cancelled; no active job or partial output was used for this check | Large input, low-space failure, active cancel, copy cancel and cleanup measurements |
+| 3 | Foreground notification and scoped recovery logic implemented | Notification/recovery tests pass | Release installed; notification/background and interrupted-job recovery flows not run | Notification controls, background progress and force-stop recovery |
+| 4 | Queue, shared navigation/layout/touch, and bounded 20-row list implemented | 417 tests pass, including 20-row rendering and text preview | Results/navigation exercised; conversion-during-navigation, 20-row scroll, motion/accessibility remain unverified | Device navigation during active conversion, 20-row scrolling, motion/accessibility |
+| 5 | Presets remain conditional on encoder detection; OGG is disabled without `libvorbis` | Preset, command and probe tests pass | MP4, MKV, MOV, WEBM, MP3, M4A, WAV, FLAC, and OPUS each produced Ready Results and played in-app; private output bytes were not separately ffprobed | Record output stream inspection; other format/input edge cases |
+| 6 | SRT/VTT/ASS input validation; ASS style preserved only in MKV; SRT/VTT extraction | Subtitle and pipeline tests pass | Not run: clearing finished jobs would delete their cache output directories and risk older user outputs | Device embed/extract, inspect streams/content, playback/preview while preserving prior outputs |
 | 7 | Notices/accessibility foundations implemented | Unit suite passes | Optimized ARMv7 release built and installed; no current TalkBack or large-text run | Library audit, TalkBack/large text, E2E, release manifest/size review |
-| 8 | SQLite v1, durable app-owned media and subtitle outputs, restart reconciliation, missing-file state, confirmed deletion controls implemented | 9 result-history tests and 417-test suite pass | SQLite cold-started and OPUS result persisted after relaunch; migration, offline restart, missing-file, and deletion scope not demonstrated | Device restart, missing output and destructive-action scope |
+| 8 | SQLite v1, durable app-owned media and subtitle outputs, restart reconciliation, missing-file state, confirmed deletion controls implemented | 9 result-history tests and 417-test suite pass | OPUS remained Ready and played after force-stop/relaunch; offline mode, missing-file behavior, and deletion scope not demonstrated | Device offline restart, missing output and destructive-action scope |
 
 No phase is complete based on source code or automated checks alone. See the latest continuation record below for superseding device and build evidence.
 
 ### Device continuation — 2026-11-07, after unlock
 
-The Samsung A13 (`R58T402DKYB`, SM-A135F, API 34, ARMv7) was unlocked. The corrected release with `expo-sqlite` pinned to Expo SDK's bundled `58.0.14` cold-started without the prior `ExpoSQLite` native-module crash. Results loaded the SQLite history screen. A synthetic QA MP4 with H.264/AAC and an embedded `mov_text` track plus staged SRT/VTT/ASS fixtures were used; the source was visible to Android's picker after a media scan. One OPUS extraction completed: Results showed `Transmute-QA-source.opus`, Ready, 52.2 kB, the source identity, and an app-owned Documents path. Relaunching Transmute retained the result and its detail page. Opening the player did not produce an observable in-app playback confirmation; playback remains unchecked. No existing results were deleted.
+The Samsung A13 (`R58T402DKYB`, SM-A135F, API 34, ARMv7) was unlocked. The corrected release with `expo-sqlite` pinned to Expo SDK's bundled `58.0.14` cold-started without the prior `ExpoSQLite` native-module crash. Results loaded the SQLite history screen. The latest format, playback, failure, and restart evidence is in the A13 output matrix below. No existing results were deleted.
 
-The release APK installed before the last source-copy edit, so revised session/history wording is not yet in that APK. Device checks for other formats, subtitle operations, stream inspection, notifications/background behavior, force-stop recovery, missing-file behavior, accessibility, safe deletion, and release E2E remain open. The app must be returned to Results before handoff.
+The release APK installed before the last source-copy edit, so revised session/history wording is not yet in that APK. Subtitle operations, stream inspection, notifications/background behavior, interrupted-job recovery, missing-file behavior, accessibility, safe deletion, and release E2E remain open. The app is left on Results for review.
 
 Latest automated evidence: `npm test` passed 417 tests across 33 files and `npm run typecheck` passed after the SQLite pin and UI wording edits. No phase is complete because its required device evidence remains incomplete.
 
+### A13 output and playback matrix — 2026-11-07
+
+Using a derived 176×144 synthetic QA source (original source retained), the installed app created Ready Results for MP4 (294 kB), MKV (294 kB), MOV (294 kB), WEBM (238 kB), MP3 (68.5 kB), M4A (44.2 kB), WAV (246 kB), FLAC (163 kB), and OPUS (52.2 kB). All nine were opened in the in-app player; Android media-session state reported `PLAYING` with no error. Video outputs displayed the test pattern. OPUS remained Ready and played after `am force-stop` and relaunch. These samples remain in Results. OGG was unavailable as expected because the bundled FFmpeg lacks `libvorbis`.
+
+The original 160×144 source's MP4 attempt failed with: `The video is 160×144, and the device encoder needs at least 176×144. Choose a larger video.` A compatible derived fixture was made without overwriting the original. Two waiting test jobs were cancelled via the app confirmation; completed outputs remained.
+
+Subtitle phone operations remain blocked by preservation: the queue contains older completed jobs and `Clear finished` deletes each finished job's cache output directory. That may include older user outputs, so it was not used. No subtitle device conversion, track inspection, or preview is claimed. Remaining device checks include subtitle operations, private output `ffprobe`, low storage, large files, active/copy cancellation, notifications, interrupted-job recovery, 20-row responsiveness, accessibility, missing-file behavior, and deletion controls. No phase is complete.
+
 ### Phase 5 â€” Format matrix and audio extraction
 
-**Current status:** Preset catalogue, runtime encoder/input checks, visible unavailable reasons, audio extraction, validation, command generation, and support matrix are implemented. Preset/encoder/probe/command tests pass. Real device conversions and `ffprobe`/playback remain unverified for all enabled formats except historical MP4 evidence, which predates the current route. Phase 5 is incomplete.
+**Current status:** Preset catalogue, runtime encoder/input checks, visible unavailable reasons, audio extraction, validation, command generation, and support matrix are implemented. Preset/encoder/probe/command tests pass. The A13 produced and played Ready results for every enabled audio/video format. The private app-owned output bytes were not separately inspected with `ffprobe`, so Phase 5 remains incomplete.
 
 - **Objective:** Deliver the advertised formats the build actually supports, without touching UI logic.
 - **Scope:** Presets for MKV, WEBM, M4V/MOV containers and audio extraction to MP3, AAC, WAV, FLAC, OGG/OPUS; capability detection for codecs that are absent from the build; preset-aware validation (e.g. no audio stream â†’ extraction disabled); documented support matrix. **Excluded:** subtitles, hardware encoders, size targeting, remux-only fast path.
@@ -218,7 +226,7 @@ Latest automated evidence: `npm test` passed 417 tests across 33 files and `npm 
 
 ### Phase 6 â€” Subtitles: embed and extract
 
-**Current status:** Sidecar validation, subtitle embedding/extraction paths, naming, and per-container codec rules are implemented and covered by automated tests. Device track listings and player behavior have not been verified; Phase 6 is incomplete.
+**Current status:** Sidecar validation, subtitle embedding/extraction paths, naming, and per-container codec rules are implemented and covered by automated tests. Device checks were not run: queue cleanup would delete finished cache directories that may contain older user outputs. Device track listings, embedding, extraction, and preview remain open; Phase 6 is incomplete.
 
 - **Objective:** Handle subtitle tracks, the remaining advertised feature.
 - **Scope:** Choose a sidecar subtitle file (SRT/ASS/VTT) and embed it into the selected container; list embedded subtitle tracks and extract one to SRT or VTT; validation of the sidecar before starting; naming and collision rules reused unchanged. **Excluded:** styling/burn-in of subtitles into the picture (a different, much slower operation), automatic language detection, subtitle editing.
@@ -235,7 +243,7 @@ Latest automated evidence: `npm test` passed 417 tests across 33 files and `npm 
 
 ### Phase 7 â€” Hardening and release readiness
 
-**Current status:** Existing contrast tests, accessibility labels, license notices, and an in-app notice summary are present. A fresh `armeabi-v7a` debug build is recorded as successful in `tasks.md`; the release build has not been attempted. The line-by-line native library license audit, TalkBack/200% scaling review, device E2E, release APK build and size record, and merged release-manifest permission check are not complete. Phase 7 is incomplete; this app is not release-ready.
+**Current status:** Existing contrast tests, accessibility labels, and license notices are present. An optimized ARMv7 release was built and installed, with artifact size and merged permission evidence recorded in `tasks.md`. The line-by-line native library license audit, TalkBack/200% scaling review, device E2E, and final release-manifest review remain incomplete. Phase 7 is incomplete; this app is not release-ready.
 
 - **Objective:** Make the app defensible: accessible, licensed, measured, and reproducible.
 - **Scope:** Complete the error taxonomy; TalkBack pass and 200% scaling fixes; token-contrast test wired into the suite; licence audit and in-app notice screen; release build for `arm64-v8a` and `x86_64` with recorded sizes; E2E flow (Maestro or Detox) for pick â†’ convert â†’ save plus cancel; README rewritten to match verified capability; `Readme.md`'s unverified claims corrected. **Excluded:** CI pipeline, store listing assets, analytics, localization, light theme.
@@ -255,7 +263,7 @@ Latest automated evidence: `npm test` passed 417 tests across 33 files and `npm 
 
 ### Phase 8 â€” Persistent Results and Storage (approved; implementation in progress)
 
-**Current status:** Approved by the owner on 2026-11-07 and under implementation. SQLite schema v1, a versioned migration runner, durable app-owned outputs, reconciliation, missing-file handling, and confirmed history/file actions are in source. Automated tests pass; native and phone checks remain open.
+**Current status:** SQLite schema v1, a versioned migration runner, durable app-owned outputs, reconciliation, missing-file handling, and confirmed history/file actions are implemented. Automated tests pass. SQLite loaded on the A13 and OPUS history/output remained playable after force-stop and relaunch; offline behavior, missing-file handling, and deletion boundaries remain unverified. Phase 8 remains open.
 
 - **Objective:** Keep a useful, private conversion history and durable outputs across app restarts, with clear recovery and deletion behavior.
 - **Scope:** Local SQLite conversion history; durable output files stored in app-owned storage; restart recovery that reconciles records with files and interrupted work; explicit missing-file states; user controls to clear history and delete app-owned output files. All records and media stay on-device and work offline. No account, sync, upload, analytics, or network dependency is introduced.

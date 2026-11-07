@@ -65,16 +65,16 @@ Keep conversion proof separate from playback/preview proof. Mark a box only afte
 
 | Test sample | Conversion/stream check | Playback or preview in Transmute |
 |---|---|---|
-| MP4 (H.264/AAC) | [ ] | [ ] |
-| MKV (H.264/AAC) | [ ] | [ ] |
-| MOV (H.264/AAC) | [ ] | [ ] |
-| WEBM (VP9/Opus) | [ ] | [ ] |
-| MP3 | [ ] | [ ] |
-| M4A (AAC) | [ ] | [ ] |
-| WAV (PCM) | [ ] | [ ] |
-| FLAC | [ ] | [ ] |
+| MP4 (H.264/AAC) | [x] | [x] |
+| MKV (H.264/AAC) | [x] | [x] |
+| MOV (H.264/AAC) | [x] | [x] |
+| WEBM (VP9/Opus) | [x] | [x] |
+| MP3 | [x] | [x] |
+| M4A (AAC) | [x] | [x] |
+| WAV (PCM) | [x] | [x] |
+| FLAC | [x] | [x] |
 | OGG (Vorbis) | N/A — unavailable: this build has no OGG audio encoder; it needs `libvorbis` | N/A |
-| OPUS | [x] | [ ] |
+| OPUS | [x] | [x] (including after app force-stop/relaunch) |
 | Embed SRT in MP4, MKV, MOV, WEBM | [ ] | [ ] Track/content inspection per container |
 | Embed VTT in MP4, MKV, MOV, WEBM | [ ] | [ ] Track/content inspection per container |
 | Embed ASS in MKV (styled) | [ ] | [ ] Track/content inspection |
@@ -155,4 +155,13 @@ Current authorization: owner instruction on 2026-11-07 covers Phases 1–8, auto
 - Player interaction was attempted, but no observable in-app playing state could be confirmed; playback remains unchecked. Other formats, subtitles, notification/recovery, missing-file, accessibility, and safe-deletion checks remain open.
 - Automated checks after the pin and UI wording edits: 417 tests across 33 files passed; typecheck passed. The installed release predates only the latest source-copy edit.
 - No prior result was deleted. No phase is complete.
+
+## A13 format and playback continuation (2026-11-07)
+
+- A derived 176×144 synthetic fixture was created from the original 160×144 QA input; the original and staged subtitle files remain unchanged. The exact original MP4 failure was: `The video is 160×144, and the device encoder needs at least 176×144. Choose a larger video.` The derived fixture met the encoder minimum.
+- Ready Results retained these derived-fixture outputs: MP4 294 kB, MKV 294 kB, MOV 294 kB, WEBM 238 kB, MP3 68.5 kB, M4A 44.2 kB, WAV 246 kB, FLAC 163 kB, and OPUS 52.2 kB. Result names use `Transmute-QA-source-176x144` plus the output extension.
+- Each listed format was opened in the in-app player. Video previews displayed the synthetic pattern; audio and video playback were corroborated by Android media-session `PLAYING` state with `error=null`. OPUS was force-stopped and relaunched first; its SQLite Ready row remained, and it played again.
+- The lower-resolution original remains as a Failed test row; two intentionally waiting test rows were cancelled through the confirmed Cancel all dialog. Previously completed results were preserved. OGG remains disabled because the build lacks `libvorbis`.
+- Device subtitle embed/extract could not be run safely: the queue contains older completed cache outputs, and its `Clear finished` handler deletes each row's cache output directory. Clearing it risks removing prior user outputs. Subtitle fixture and device evidence remain open; no subtitle conversion or preview is claimed.
+- Phase 2 cancellation evidence is limited to safely cancelling waiting rows. Low-storage, large-file, active conversion cancel, copy cancellation, notification/background/recovery, 20-row, TalkBack/large-text, and deletion/missing-file device checks remain open.
 

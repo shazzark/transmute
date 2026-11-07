@@ -10,7 +10,7 @@ Historical A13 verification on 2026-11-07 used an earlier APK: Home safe areas, 
 
 Current automated checks pass: npm test reports 417 tests across 33 files, and npm run typecheck succeeds. The optimized ARMv7 release APK built successfully at 59,979,181 bytes. It contains the bundled Android JavaScript asset and libmunimffmpeg for armeabi-v7a. Its manifest has no INTERNET or broad storage permission, and its signing certificate matches the previously installed APK. The release update was installed with adb install -r; the three older outputs were present before installation, and no uninstall or data wipe was performed.
 
-The corrected release cold-started on the unlocked A13 with SQLite available. One synthetic MP4-to-OPUS extraction produced a Ready 52.2 kB app-owned result, and its history entry remained after relaunch. Playback was attempted but did not yield a verifiable in-app playing state. All other per-format conversions, subtitles, notification/recovery flows, missing-file behavior, accessibility, and deletion controls remain unverified on device. The installed APK predates the latest source-only UI wording edit. See implementation-plan.md and tasks.md for the per-phase checklist.
+The corrected release cold-started on the unlocked A13 with SQLite available. A derived 176×144 synthetic fixture produced Ready Results for MP4, MKV, MOV, WEBM, MP3, M4A, WAV, FLAC, and OPUS. Each was opened and played or previewed in Transmute; Android media-session state reported `PLAYING` with no error. OPUS remained Ready and playable after force-stop and relaunch. The original 160×144 fixture failed MP4 conversion with the device encoder's 176×144 minimum-resolution message; it was preserved. OGG remains explicitly unavailable because this build lacks `libvorbis`. Subtitle operations and remaining phase device checks are still open; see `implementation-plan.md` and `tasks.md`.
 History and output files are kept on this device only. Conversion history uses a versioned SQLite database; completed media and extracted subtitles are copied to Transmute's app-owned Documents storage before they are marked complete. Startup checks interrupted records and missing output files. Results provide separate confirmed actions to delete one output, remove one result and its owned file, or clear all history and owned output files. Transmute does not upload results or require a network connection for conversion or history.
 
 ## Features implemented (device verification remains open)
@@ -24,20 +24,20 @@ History and output files are kept on this device only. Conversion history uses a
 
 ## Output format matrix (implementation, not a device certification)
 
-The bundled engine's encoder inventory controls which formats the selector enables. A missing encoder is shown as the reason for unavailability; Transmute never substitutes a codec or container. Real-output verification is complete only for the historical MP4 conversion recorded in `tasks.md`; the other rows still need device `ffprobe` and playback evidence.
+The bundled engine's encoder inventory controls which formats the selector enables. A missing encoder is shown as the reason for unavailability; Transmute never substitutes a codec or container. Device evidence below confirms retained outputs and in-app playback/preview for enabled formats; a separate `ffprobe` inspection of private app-owned output bytes is not recorded.
 
 | Group | Output | Requested streams/codecs | Automatic capability check | Real device evidence |
 |---|---|---|---|---|
-| Video | MP4 | H.264 + AAC | H.264 encoder candidate and AAC encoder | Prior MP4 conversion and `ffprobe` recorded in T-13; current UI path not rerun |
-| Video | MKV | H.264 + AAC | H.264 encoder candidate and AAC encoder | Not run |
-| Video | MOV | H.264 + AAC | H.264 encoder candidate and AAC encoder | Not run |
-| Video | WEBM | VP9 + Opus | `libvpx-vp9` or `libvpx`, plus `libopus` | Not run |
-| Audio | MP3 | MP3 | `libmp3lame` | Not run |
-| Audio | M4A | AAC | `aac` | Not run |
-| Audio | WAV | PCM signed 16-bit | `pcm_s16le` | Not run |
-| Audio | FLAC | FLAC | `flac` | Not run |
+| Video | MP4 | H.264 + AAC | H.264 encoder candidate and AAC encoder | Ready, 294 kB; in-app test-pattern playback confirmed |
+| Video | MKV | H.264 + AAC | H.264 encoder candidate and AAC encoder | Ready, 294 kB; in-app playback confirmed |
+| Video | MOV | H.264 + AAC | H.264 encoder candidate and AAC encoder | Ready, 294 kB; in-app playback confirmed |
+| Video | WEBM | VP9 + Opus | `libvpx-vp9` or `libvpx`, plus `libopus` | Ready, 238 kB; in-app playback confirmed |
+| Audio | MP3 | MP3 | `libmp3lame` | Ready, 68.5 kB; in-app playback confirmed |
+| Audio | M4A | AAC | `aac` | Ready, 44.2 kB; in-app playback confirmed |
+| Audio | WAV | PCM signed 16-bit | `pcm_s16le` | Ready, 246 kB; in-app playback confirmed |
+| Audio | FLAC | FLAC | `flac` | Ready, 163 kB; in-app playback confirmed |
 | Audio | OGG | Vorbis | `libvorbis` (unavailable: the bundled FFmpeg recipe does not enable libvorbis) | Unsupported in this build; no OGG sample will be created |
-| Audio | OPUS | Opus | `libopus` | Not run |
+| Audio | OPUS | Opus | `libopus` | Ready, 52.2 kB; in-app playback confirmed after force-stop/relaunch |
 
 The selected input must also contain the stream needed by the requested output. Encoder presence alone does not prove a combination is playable on a device.
 
