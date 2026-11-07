@@ -215,6 +215,12 @@ Independent host checks used only synthetic fixtures in `.local-recovery/Transmu
 
 `npm test` passed 417 tests across 33 files and `npm run typecheck` passed. These automated and host media checks do not complete device acceptance. Subtitles, private-output inspection, background/notification actions, cancellation/cleanup, large/low-storage cases, 20-row responsiveness, offline/missing-file/deletion behavior, TalkBack/large text/reduced motion, and final release gates remain open. All phases remain incomplete.
 
+### Release and authorization follow-up — 2026-11-08
+
+Although the owner reported the A13 unlocked and authorized, host ADB still returns `R58T402DKYB unauthorized` after server restart and reconnect. The installed app remains untouched; subtitle Results samples and all other phone checks remain unverified. The next required evidence is still app-side SRT/VTT/ASS embedding, track inspection, playback/preview, and SRT/VTT extraction.
+
+A separate local release build completed for `arm64-v8a` and `x86_64`. The 140,102,912-byte APK contains the FFmpeg library for both ABIs and the bundled JS; APK Signature Scheme v2 verifies with the local debug key. The earlier ARMv7 APK and metadata were preserved under `.local-recovery/`. The new APK was not installed. `aapt` confirms the packaged manifest has no INTERNET or broad storage/media permission; it does include `ACCESS_NETWORK_STATE`, `RECEIVE_BOOT_COMPLETED`, and Google Play Services notification-related permissions. This static inspection does not verify offline runtime behavior. The line-by-line license audit, E2E, and accessibility device review remain open. No phase is complete.
+
 ### Phase 5 â€” Format matrix and audio extraction
 
 **Current status:** Preset catalogue, runtime encoder/input checks, visible unavailable reasons, audio extraction, validation, command generation, and support matrix are implemented. Preset/encoder/probe/command tests pass. The A13 produced and played Ready results for every enabled audio/video format. The private app-owned output bytes were not separately inspected with `ffprobe`, so Phase 5 remains incomplete.

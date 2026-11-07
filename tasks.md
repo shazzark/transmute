@@ -185,3 +185,10 @@ Current authorization: owner instruction on 2026-11-07 covers Phases 1–8, auto
 | 20-item responsiveness; TalkBack, large text, reduced motion | [ ] | [ ] | N/A | Blocked: ADB unauthorized |
 | Offline restart, missing-file handling, safe QA deletion | [ ] | [ ] | N/A | Blocked: ADB unauthorized; no existing results deleted |
 
+## Follow-up after owner reported A13 authorization (2026-11-08)
+
+- Despite the owner reporting the A13 unlocked and authorized, this host returned `R58T402DKYB unauthorized` from `adb devices -l` before and after `adb kill-server`/`start-server` and `adb reconnect device`. No app interaction was attempted while unauthorized. The installed app was not changed; phone acceptance checks remain blocked.
+- Built a local ARM64/x86_64 release APK with `gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,x86_64`; Gradle completed successfully. The APK is 140,102,912 bytes and contains `libmunimffmpeg.so` for both requested ABIs plus `assets/index.android.bundle`. APK Signature Scheme v2 verifies with the local Android debug certificate. The previous ARMv7 APK (60,110,253 bytes) and metadata were backed up under the untracked `.local-recovery/` area before Gradle replaced its output. Neither artifact was installed or published.
+- `aapt dump permissions` on the new APK confirms no INTERNET, READ/WRITE_EXTERNAL_STORAGE, or READ_MEDIA_VISUAL_USER_SELECTED permission. It does include ACCESS_NETWORK_STATE, RECEIVE_BOOT_COMPLETED, and Google Play Services notification-related permissions; these came from merged dependencies. This is a packaged-artifact finding, not an offline device test.
+- Native library license audit remains open: `THIRD_PARTY_NOTICES.md` explicitly tracks the line-by-line audit as O-4. TalkBack/large-text/reduced-motion phone review and device E2E also remain open. No phase is complete.
+
