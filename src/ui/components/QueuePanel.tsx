@@ -10,7 +10,6 @@ import {
 } from '../../domain/queue';
 import { formatBytes, queueStatusLabel } from '../format';
 import { color, layout, radius, spacing, type, weight } from '../tokens';
-import { bottomNavigationClearance } from '../layout';
 import { ProgressBar, type ProgressTone } from './ProgressBar';
 import { SecondaryButton } from './SecondaryButton';
 
@@ -20,7 +19,6 @@ export interface QueuePanelProps {
   readonly focusId: string | null;
   /** True while a copy is running: cancelling or retrying now would race it. */
   readonly disabled: boolean;
-  readonly bottomInset?: number;
   readonly onCancelJob: (job: QueueJob) => void;
   readonly onRetryJob: (job: QueueJob) => void;
   /** A converted row becomes the row whose file the copy panel works on. */
@@ -151,7 +149,6 @@ export function QueuePanel({
   state,
   focusId,
   disabled,
-  bottomInset = 0,
   onCancelJob,
   onRetryJob,
   onSelectJob,
@@ -167,7 +164,7 @@ export function QueuePanel({
   return (
     <FlatList
       style={styles.list}
-      contentContainerStyle={[styles.panel, { paddingBottom: bottomNavigationClearance(bottomInset) + layout.screenPadding }]}
+      contentContainerStyle={styles.panel}
       data={state.jobs}
       keyExtractor={(job) => job.id}
       initialNumToRender={8}
@@ -224,7 +221,7 @@ export function QueuePanel({
 const styles = StyleSheet.create({
   panel: {
     gap: spacing.sm,
-    padding: layout.screenPadding,
+    paddingBottom: layout.screenPadding,
   },
   list: {
     flex: 1,

@@ -4,7 +4,7 @@
 >
 > **Document rules:** `[Confirmed]`, `[Inferred]`, `[Recommended]`, `[Open question]` as defined in `project-brief.md`. The owner authorized implementation through Phase 7 on 2026-10-29. Phase status below separates code, automated evidence, and device evidence.
 
-**Status:** Authorized; Phases 1â€“3 have prior implementation evidence, Phase 4 is underway, and all remaining device gates stay open | **Plan owner:** `shazzark` | **Scope/version:** `v0.1-mvp`
+**Status:** Phases 1â€“7 remain open where acceptance evidence is incomplete; Phase 8 is documented for later discussion and is not authorized for implementation | **Plan owner:** `shazzark` | **Scope/version:** `v0.1-mvp`
 
 ## 2026-10-30 continuation evidence
 
@@ -135,17 +135,35 @@ Dependencies: M2 depends on M1; M3 depends on M2 (a service is only worth adding
 
 **Current implementation status:** Router paths are wired through a controller mounted above the route stack. The Convert handler claims the runner before asynchronous notification work; duplicate taps are guarded; the runner stays FIFO and serial; notification taps have an allowlisted `/results` destination; completion notices are posted only when every row completed; an app-private marker triggers partial-cache cleanup after process death; results remain memory-only. Unit coverage exercises the rendered Convert button, duplicate-tap prevention, notification destination, recovery ordering, FIFO, and failure continuation. **Not yet verified:** smooth scrolling with 20 rows on device, native notification permission and progress, native tap handling in open/background/cold states, phone navigation while converting, result playback/save/share lifecycle, and all device acceptance. The Phase 4 extension remains incomplete until the available build and device gates pass.
 
-### Phase-by-phase evidence summary (2026-10-29)
+### Phase-by-phase evidence summary (2026-11-05 audit; historical snapshot)
 
 | Phase | Implemented | Automatically verified | Device verified | Blocked or not run |
 |---|---|---|---|---|
 | 1 â€” Core conversion | Yes; prior work | Earlier 384-test-era checks are recorded in T-13 | Prior API 34 conversion and `ffprobe` evidence recorded in T-13 | Several original acceptance items remain open in the historical T-13 record |
 | 2 â€” Files, save, cleanup | Pipeline, SAF save/cancel, cleanup code exists | Existing pipeline and save tests | Prior device evidence is not complete | >1 GB, low-space, all save cancel points, and cache measurements remain open |
 | 3 â€” Background and recovery | Native dataSync service; this revision adds timeout handling and interrupted marker cleanup | Native build and manifest merge attempted below; recovery unit tests | No current device evidence | Permission denial, screen-off progress, notification cancel, force-stop and timeout runtime checks |
-| 4 â€” Queue + revised UI/UX | Queue, Router shell, results, share/save wiring, notification routing | TypeScript and 389 Vitest tests; Expo config and prebuild; rendered Convert and 20-row list configuration tests | Not verified | Native build blocked by unavailable JDK 17 download; device responsiveness for 20 rows; result lifecycle and all native notification and phone flows |
+| 4 â€” Queue + revised UI/UX | Queue, Router shell, results, save/share wiring, notification routing; current work adds safe-area/navigation/touch fixes | Historical 396-test suite and TypeScript/build evidence are recorded in `tasks.md`; current typecheck passes, current Vitest run is blocked by `EPERM` creating Vite's config temp file | Earlier debug Home/tabs launch recorded; current ADB has no connected device | Current navigation/touch fixes need phone confirmation; device responsiveness for 20 rows, result lifecycle, and native notification flows remain open |
 | 5 â€” Format matrix/audio | Presets, capability checks, argv, input validation, audio extraction paths exist | Preset, encoder, probe, command tests | No complete format-by-format phone/`ffprobe` matrix | Real output/playback evidence per enabled preset |
 | 6 â€” Subtitles | SRT embed, extraction, validation, per-container rules exist | Subtitle, pipeline, and naming tests | No complete container/player matrix | Real `ffprobe` track listings and playback checks |
 | 7 â€” Hardening/release | Contrast tokens/tests, inline notices summary, license files, accessibility labels exist | Unit tests; release native build not complete | No TalkBack, scaling, E2E, or installed release evidence | Line-by-line library audit, automated device journey, release ABI artifacts/sizes, merged release permission audit |
+
+**Audit note (2026-11-05):** Phase 1 retains historical API 34 conversion and desktop `ffprobe` evidence, but several original acceptance checks remain open. Phases 2â€“3 have implemented pipeline/save/cleanup and foreground-service/recovery code with automated evidence recorded historically; large-file, low-space, process-death, and native notification behavior remain unverified on the phone. Phases 4â€“7 have the implementation and evidence limits summarized above. In this session, `npm run typecheck` passed; `npm test` did not start because Vite could not write `node_modules/.vite-temp/...` (`EPERM`); `adb devices -l` returned no attached device. No phase is closed by code presence alone.
+
+### Current audit and continuation (2026-11-07)
+
+The phase review against current source and recorded evidence keeps every phase open until its acceptance evidence is complete.
+
+| Phase | Implemented features | Automated verification | Phone verification | Remaining checks / blockers |
+|---|---|---|---|---|
+| 1 — Core conversion | Picker, probe, MP4 conversion flow, progress and error states; historical real conversion evidence remains valid for that APK | Current suite: 400 tests across 31 files; typecheck, Android bundle export, and fresh debug build pass | Historical API 34 MP4 conversion and desktop ffprobe are recorded in T-13; current picker opened/cancelled and source metadata was read, but current MP4 conversion was not rerun | Current-route MP4 conversion, original cancel/unsupported-file device cases, complete manifest evidence |
+| 2 — Real files, save and cleanup | Chunked storage, free-space checks, cancellation and cleanup code are present | Covered by current automated suite; phase-specific fake-port tests remain in the suite | A 3-second output was saved through SAF; saved size and SHA-256 matched the cache output; test job was cleared. Three older cache outputs were preserved | >1 GB or maximum available fixture, low space, cancel/failure cache measurements, copy-stage cancellation, force-stop cleanup |
+| 3 — Background and interrupted jobs | Foreground service, timeout handling, active marker, cleanup, and one-time Interrupted notices on Home and Activity are implemented | Current suite includes notification and recovery tests; Android export and fresh debug build pass | Recovery was not simulated because its cleanup would delete three existing cache outputs; notification/background behavior remains untested | Screen-off progress, permission denial, notification cancel, force-stop notice/cleanup, service type and timeout runtime checks |
+| 4 — Queue and navigation | FIFO queue, result/session history, notification routing, shared route controller, safe-area frame, tab clearance, and touch changes are in source | 400 tests, typecheck, public Expo config, Android bundle export, and fresh debug build pass | Current Home visually checked; all five tabs, MP3 shortcut, Android Back, picker open/cancel, result detail, save/hash, share sheet open/back, Settings, and notice screen were exercised | Twenty-row scrolling, notification flows, conversion while navigating, result playback and final motion/accessibility review |
+| 5 — Format matrix/audio | Presets, capability validation and audio extraction paths are implemented | Preset, encoder, probe and command cases are covered by the current suite | On-device MP3 extraction passed; ffprobe reports MP3 audio, 3.000 seconds, 73,493 bytes. No complete format/playback matrix | Run each other enabled preset on-device; record ffprobe and playback or document unsupported combinations |
+| 6 — Subtitles | Sidecar validation, per-container embed/extract and naming paths are implemented | Subtitle and pipeline cases are covered by the current suite | No complete container/player evidence | Record track listings, extracted dialogue/timestamps and playback for claimed combinations |
+| 7 — Hardening/release | Contrast checks, accessibility labels and notices are present | Current unit suite passes; release build and release-manifest checks are not run in this continuation | In-app MIT/LGPL notices opened on the phone; no TalkBack, 200% scaling, E2E or release-install evidence | Library license audit, accessibility pass, automated device journey, release ABIs/sizes and merged release permissions |
+
+Checks run 2026-11-07: npm run typecheck passed; npm test passed (31 files, 400 tests); npx expo config --type public --json passed; npx expo export --platform android --output-dir .expo-export-check bundled 1,375 modules successfully; npx expo run:android built the fresh armeabi-v7a debug APK and installed/launched it on R58T402DKYB. Phone checks covered Home/safe areas, all tabs, MP3 shortcut, Android Back, picker, one MP3 conversion, SAF save with matching size/hash, share sheet opening, and in-app notices. `ffprobe` confirmed MP3 audio and 3.000 seconds. The test job and only generated test files were removed; three older app-cache outputs remain untouched. Notification/background, 20-row, remaining format/subtitle, playback, accessibility, recovery, and release checks remain open. No phase is complete based on code presence alone.
 
 ### Phase 5 â€” Format matrix and audio extraction
 
@@ -183,7 +201,7 @@ Dependencies: M2 depends on M1; M3 depends on M2 (a service is only worth adding
 
 ### Phase 7 â€” Hardening and release readiness
 
-**Current status:** Existing contrast tests, accessibility labels, license notices, and an in-app notice summary are present. The line-by-line native library license audit, TalkBack/200% scaling review, device E2E, release APK build and size record, and merged release-manifest permission check are not complete. Native build is blocked because the required JDK 17 toolchain cannot be downloaded in this environment. Phase 7 is incomplete; this app is not release-ready.
+**Current status:** Existing contrast tests, accessibility labels, license notices, and an in-app notice summary are present. A fresh `armeabi-v7a` debug build is recorded as successful in `tasks.md`; the release build has not been attempted. The line-by-line native library license audit, TalkBack/200% scaling review, device E2E, release APK build and size record, and merged release-manifest permission check are not complete. Phase 7 is incomplete; this app is not release-ready.
 
 - **Objective:** Make the app defensible: accessible, licensed, measured, and reproducible.
 - **Scope:** Complete the error taxonomy; TalkBack pass and 200% scaling fixes; token-contrast test wired into the suite; licence audit and in-app notice screen; release build for `arm64-v8a` and `x86_64` with recorded sizes; E2E flow (Maestro or Detox) for pick â†’ convert â†’ save plus cancel; README rewritten to match verified capability; `Readme.md`'s unverified claims corrected. **Excluded:** CI pipeline, store listing assets, analytics, localization, light theme.
@@ -200,6 +218,26 @@ Dependencies: M2 depends on M1; M3 depends on M2 (a service is only worth adding
 - **Verification:** accessibility pass with screenshots; `npx vitest run`; E2E run log; `assembleRelease`; `dumpsys package` permission dump; README review against the phase evidence.
 - **Risks/blockers:** the licence audit can invalidate the release (if the bundled libraries impose terms the project cannot meet), which is why it is a stop condition rather than a checklist item; E2E tooling may simply not work on Windows.
 - **Completion conditions:** all criteria evidenced, audit signed off by the owner, release candidate installed and used for one full conversion, final report published in the repository.
+
+### Phase 8 â€” Persistent Results and Storage (future; details to discuss)
+
+**Current status:** Planned only. No schema, storage adapter, migration, or user-facing controls are implemented for this phase. The existing session-only result list and app-cache outputs remain the current behavior. This phase is intentionally deferred until its details and acceptance choices are discussed.
+
+- **Objective:** Keep a useful, private conversion history and durable outputs across app restarts, with clear recovery and deletion behavior.
+- **Scope:** Local SQLite conversion history; durable output files stored in app-owned storage; restart recovery that reconciles records with files and interrupted work; explicit missing-file states; user controls to clear history and delete app-owned output files. All records and media stay on-device and work offline. No account, sync, upload, analytics, or network dependency is introduced.
+- **Dependencies:** Phase 2's output and cleanup contracts; Phase 4's queue/result identity and lifecycle; Phase 7's release, privacy, and data-retention review. Final schema, retention rules, and clear/delete semantics require product discussion before implementation.
+- **Deliverables:** versioned SQLite schema and migration path; storage boundary for durable app-owned outputs; restart reconciliation and interruption recovery; missing-file UI; separately clearable history and output-deletion controls with confirmed behavior; tests and device evidence.
+- **Acceptance criteria (proposed for discussion):**
+  1. Completed conversion records and their app-owned output files remain available after force-stop and relaunch, with metadata matching the converted result.
+  2. Recovery marks interrupted jobs accurately and never reports an incomplete output as successful.
+  3. If a recorded output is absent or unreadable, the history row clearly reports that state and offers only actions that can succeed; opening, sharing, and deleting it do not crash.
+  4. Clearing history and deleting output files have explicit, separately understood effects; a user can remove one result and all associated app-owned bytes without touching files outside app storage.
+  5. Database migrations preserve valid history across an app upgrade; corrupt or unsupported database state has a documented, user-visible recovery path.
+  6. History and outputs remain available with networking disabled; the app adds no network permission or remote storage path for this feature.
+  7. Automated tests cover persistence/restart reconciliation, migrations, missing files, individual deletion, clear-history behavior, and cleanup failures; physical-device checks confirm offline restart and storage behavior.
+- **Verification:** SQLite repository and migration tests; application recovery tests with missing, partial, and valid files; Android restart/force-stop and offline checks; storage inspection proving app-owned placement and deletion boundaries.
+- **Risks/open decisions:** SQLite schema and migration ownership; whether clearing history keeps or deletes output files by default; whether interrupted rows are retained; output retention and low-storage policy; safe handling of missing, externally removed, or partially written files. Resolve these with the owner before implementation.
+- **Completion conditions:** decisions recorded in the requirements and technical design, all acceptance evidence attached, and owner approval. This phase is not part of current execution authorization.
 
 ## Change process
 

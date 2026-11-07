@@ -4,7 +4,9 @@
 >
 > **Document rules:** `[Confirmed]`/`[Inferred]`/`[Recommended]`/`[Open question]` as defined in `project-brief.md`. T-01â€“T-13 are historical Phase 1 records; current cross-phase execution status is maintained below and in `implementation-plan.md`.
 
-**Status:** Authorized execution through Phase 7; earlier phases have open evidence gaps | **Owner:** `shazzark` | **Updated:** 2026-10-30
+**Status:** Authorized execution through Phase 7; earlier phases have open evidence gaps | **Owner:** `shazzark` | **Updated:** 2026-11-07
+
+**Future phase:** Phase 8, “Persistent Results and Storage,” is documented in `implementation-plan.md` for discussion only; it is not authorized for implementation. It is local and offline by requirement.
 
 ## Current continuation (2026-10-30)
 
@@ -14,11 +16,24 @@
 
 ## Current execution checklist
 
+## Future phase task (discussion only)
+
+| ID | Work item | Deliverable | Dependencies | Acceptance/check | Owner/status |
+|---|---|---|---|---|---|
+| F-01 | Define and, after discussion, implement Phase 8: SQLite conversion history, durable app-owned output files, restart recovery, missing-file handling, and clear-history/file-deletion controls | Versioned schema and migrations; persistent storage/recovery behavior; explicit deletion controls; tests and device evidence | Phase 2 output/cleanup contracts; Phase 4 result identity/lifecycle; Phase 7 privacy/release review; owner decisions on retention, interrupted rows, and clear/delete semantics | Records/files survive force-stop and relaunch offline; migrations preserve history; interrupted/missing outputs are accurately represented; clear history and delete files have understood, tested effects; no remote dependency | **Planned only; details to discuss before implementation** |
+
+## Current continuation (2026-11-05)
+
+- `npm run typecheck` passed in this session. `npm test` could not start: Vite received `EPERM` while opening its generated file in `node_modules/.vite-temp`.
+- `adb devices -l` returned an empty device list, so no current handset verification was possible.
+- The working tree includes shared layout, safe-area, navigation, and touch changes. They were preserved; phone confirmation remains open.
+- Historical short-path `armeabi-v7a` debug build and Home/tab launch are recorded below. Release build, final APK interaction, notifications, and conversion/save/share runtime checks remain open.
+
 - [x] **Additional approved follow-up — persistent navigation, animated introduction, and Home dashboard:** Implemented five Expo Router tabs above a root-mounted conversion controller, live queue-count badge, one-time cold-Home logo assembly with reduced-motion and deep-link handling, and a concise dashboard with working video, MP3 extraction, and subtitle-workflow shortcuts. TypeScript, automated tests, and the Android JS bundle pass.
 - [x] **Follow-up acceptance details — implementation:** Added session-only activity from real complete/failed/cancelled/recovered-interruption state (no unread tracking), notification permission status and system-settings action, app version/About, offline/history explanation, and license navigation. Added reduced-motion handling, sequential entrances, press feedback, and tab-bar content clearance.
 
 - [x] Reproduce and fix queue startup being blocked on notification permission.
-- [x] Add rapid-start guard, notification destination validation, and interruption cleanup tests.
+- [x] Add rapid-start guard, notification destination validation, interruption cleanup tests, and a cold-start Home notice for recovered jobs.
 - [x] Configure Expo Router routes and keep the processing controller mounted above them.
 - [x] Add session-only results, file save/share actions, startup notification permission/channel setup, and completion notices.
 - [x] Add native `dataSync` timeout cancellation and notification deep-link intent.
@@ -26,12 +41,15 @@
 - [ ] Verify 20-row responsiveness on the device.
 - [x] Add rendered UI coverage proving the visible Convert button starts one runner despite rapid duplicate taps.
 - [x] Add root-controller mount lifecycle, intro/deep-link priority, queue-badge lifecycle, and Home audio/video preselection tests; conversion start guard still passes.
-- [ ] Verify tab/back behavior, notifications in open/background/cold launch, visual motion, and safe-area layout on the physical phone; final APK is not installed.
-- [ ] Verify native builds/manifests, real device notifications/deep links/cancellation, conversions, and playback.
+- [x] Build/install the current armeabi-v7a debug APK; verify Home safe areas, all five tabs, MP3 shortcut, Android Back, picker open/cancel, and notice screen on SM-A135F.
+- [x] Verify one MP3 conversion, `ffprobe` output, SAF save with matching SHA-256, share-sheet opening, and app cleanup for the generated test job.
+- [ ] Verify notification/background flows, 20-row responsiveness, remaining formats and subtitles, and playback.
+- [ ] Verify force-stop recovery with a dedicated disposable test job; preserve the three older cache outputs currently on the phone.
+- [ ] Inspect current debug/release merged manifests, release ABIs/artifact sizes, and run release/E2E gates.
 - [ ] Complete format-by-format and subtitle-by-container device evidence.
 - [ ] Complete TalkBack/200% text, E2E, release artifact, and release-manifest gates.
 
-Current automated evidence: `npm run typecheck` passes; `npm test` passes (30 files, 396 tests); `npx expo export --platform android --output-dir .expo-export-check` bundles successfully (1,374 modules; temporary output removed); `npx expo config --type public --json`, prebuild/codegen path gates, and the full `armeabi-v7a` Gradle build pass. `git -c core.whitespace=cr-at-eol diff --check` passes; CRLF is the established file format. The final APK is installed and Home/tabs startup were observed on the phone. Notification open/background/cold launches, tab/back interaction, conversion/save/share on this final UI, and the compact header after its last fix remain unverified on-device.
+Current evidence (2026-11-07): npm run typecheck passes; npm test passes (31 files, 400 tests); npx expo config --type public --json passes; npx expo export --platform android --output-dir .expo-export-check bundles 1,375 modules (generated output removed); npx expo run:android built and installed/launched the fresh armeabi-v7a debug APK on R58T402DKYB. The A13 check covered Home safe areas, tabs, MP3 shortcut, Back, picker open/cancel, notices, one 3-second MP3 conversion, `ffprobe` output (73,493 bytes), SAF save with matching SHA-256, share-sheet open/back, and clearing the generated test job. The app’s three older cache outputs were preserved. Notification/background, 20-row, remaining format/subtitle, playback, recovery, accessibility, and release checks remain open. `git -c core.whitespace=cr-at-eol diff --check` is the repository check for its CRLF files.
 
 ## Phase objective and links
 

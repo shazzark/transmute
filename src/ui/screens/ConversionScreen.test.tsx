@@ -10,6 +10,9 @@ const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   replace: vi.fn(),
   pathname: '/convert',
+  hasActiveMarker: vi.fn(),
+  removePartialOutputs: vi.fn(),
+  clearActiveMarker: vi.fn(),
 }));
 
 vi.mock('react-native', async () => {
@@ -74,7 +77,11 @@ vi.mock('../../native/foregroundService', () => ({
 }));
 vi.mock('../../native/jobFiles', () => ({
   clearConversionMarker: vi.fn(async () => {}), markConversionRunning: vi.fn(async () => {}),
-  interruptedRecoveryPorts: { hasActiveMarker: vi.fn(async () => false), removePartialOutputs: vi.fn(async () => {}), clearActiveMarker: vi.fn(async () => {}) },
+  interruptedRecoveryPorts: {
+    hasActiveMarker: mocks.hasActiveMarker,
+    removePartialOutputs: mocks.removePartialOutputs,
+    clearActiveMarker: mocks.clearActiveMarker,
+  },
 }));
 vi.mock('../../native/saveDestination', () => ({ savePorts: {} }));
 vi.mock('../../native/subtitlePicker', () => ({ sidecarPorts: {} }));
@@ -96,7 +103,10 @@ vi.mock('../components/SecondaryButton', async () => {
 });
 vi.mock('../components/QueuePanel', () => ({ QueuePanel: () => null }));
 vi.mock('../components/BrandHeader', () => ({ BrandHeader: () => null, BrandMark: () => null }));
-vi.mock('../components/Banner', () => ({ Banner: () => null }));
+vi.mock('../components/Banner', async () => {
+  const ReactModule = await import('react');
+  return { Banner: (props: Record<string, unknown>) => ReactModule.createElement('Banner', props) };
+});
 vi.mock('../components/ConfirmDialog', () => ({ ConfirmDialog: () => null }));
 vi.mock('../components/ConversionSummary', () => ({ ConversionSummary: () => null }));
 vi.mock('../components/PresetSelector', async () => {
@@ -132,6 +142,9 @@ describe('ConversionScreen Convert action', () => {
   beforeEach(async () => {
     mocks.pathname = '/convert';
     mocks.push.mockClear();
+    mocks.hasActiveMarker.mockReset().mockResolvedValue(false);
+    mocks.removePartialOutputs.mockReset().mockResolvedValue(undefined);
+    mocks.clearActiveMarker.mockReset().mockResolvedValue(undefined);
     mocks.pickSourceFiles.mockReset().mockResolvedValue({
       status: 'picked',
       sources: [{ path: '/cache/input.mp4', name: 'input.mp4', sizeBytes: 1024, mimeType: 'video/mp4' }],
@@ -174,5 +187,19 @@ describe('ConversionScreen Convert action', () => {
     mocks.pathname = '/convert';
     await act(async () => { renderer.update(React.createElement(ConversionScreen)); });
     expect(renderer.root.findAll((node) => String(node.type) === 'PresetSelector')[0]?.props.selectedId).toBe('mp4');
+  });
+
+  it('shows interrupted recovery on Home after cleaning the previous partial output', async () => {
+    await act(async () => renderer.unmount());
+    mocks.hasActiveMarker.mockResolvedValueOnce(true);
+    mocks.pathname = '/';
+
+    await act(async () => { renderer = TestRenderer.create(React.createElement(ConversionScreen)); });
+
+    const notice = renderer.root.findAll((node) =>
+      String(node.type) === 'Banner' && node.props.title === 'Interrupted conversion')[0];
+    expect(notice?.props.message).toContain('partial files were removed');
+    expect(mocks.removePartialOutputs).toHaveBeenCalledTimes(1);
+    expect(mocks.clearActiveMarker).toHaveBeenCalledTimes(1);
   });
 });

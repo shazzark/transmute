@@ -15,7 +15,7 @@ vi.mock('react-native', async () => {
   return {
     Platform: { OS: 'android' },
     StatusBar: { currentHeight: 99 },
-    StyleSheet: { create: (styles: unknown) => styles, absoluteFill: { position: 'absolute' } },
+    StyleSheet: { create: (styles: unknown) => styles, absoluteFill: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 } },
     View: host('View'),
   };
 });
@@ -70,8 +70,15 @@ describe('root conversion controller navigation lifecycle', () => {
   it('keeps the controller mounted as the Router stack changes screens', () => {
     act(() => { renderer = TestRenderer.create(React.createElement(RootLayout)); });
     expect(mocks.mounts).toBe(1);
-    const insetView = renderer.root.findAll((node) => String(node.type) === 'View' && Array.isArray(node.props.style) && node.props.style.some((style) => style !== null && typeof style === 'object' && 'paddingTop' in style))[0];
-    expect(insetView?.props.style).toEqual(expect.arrayContaining([expect.objectContaining({ paddingTop: 24, paddingLeft: 8, paddingRight: 12 })]));
+    const stack = renderer.root.findAll((node) => String(node.type) === 'RouterStack')[0];
+    const controller = renderer.root.findAll((node) => String(node.type) === 'View' && node.props.pointerEvents === 'box-none')[0];
+    expect(controller?.props.style).toEqual(expect.objectContaining({ position: 'absolute', zIndex: 1 }));
+    const stackedLayers = renderer.root.findAll((node) =>
+      String(node.type) === 'RouterStack' || (String(node.type) === 'View' && node.props.pointerEvents === 'box-none'));
+    const stackIndex = stackedLayers.indexOf(stack!);
+    const controllerIndex = stackedLayers.indexOf(controller!);
+    expect(stackIndex).toBeGreaterThanOrEqual(0);
+    expect(controllerIndex).toBeGreaterThan(stackIndex);
 
     mocks.route = '/queue';
     act(() => { renderer.update(React.createElement(RootLayout)); });

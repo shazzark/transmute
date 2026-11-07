@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import brandMark from '../../../assets/brand-mark.png';
 import { AccessibilityInfo, Animated, AppState, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import * as Sharing from 'expo-sharing';
@@ -69,6 +68,7 @@ import { sidecarPorts } from '../../native/subtitlePicker';
 import { Banner } from '../components/Banner';
 import { BrandHeader, BrandMark } from '../components/BrandHeader';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { ScreenLayout } from '../components/ScreenLayout';
 import { ConversionSummary } from '../components/ConversionSummary';
 import { PresetSelector } from '../components/PresetSelector';
 import { PrimaryButton } from '../components/PrimaryButton';
@@ -80,7 +80,6 @@ import { SubtitlePanel } from '../components/SubtitlePanel';
 import { VideoPreviewCard, type PreviewState } from '../components/VideoPreviewCard';
 import { color, layout, spacing, type } from '../tokens';
 import { updateQueueBadge } from '../navigation/queueBadge';
-import { bottomNavigationClearance } from '../layout';
 
 /** Shown once when Android 13+ notification permission is refused (TR-29). */
 const NOTIFICATION_UNAVAILABLE =
@@ -110,7 +109,6 @@ let introAlreadyShown = false;
  */
 export function ConversionScreen(): React.JSX.Element {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const rootNavigationState = useRootNavigationState();
   const detailsId = pathname.startsWith('/results/') ? pathname.slice('/results/'.length) : null;
@@ -877,10 +875,10 @@ export function ConversionScreen(): React.JSX.Element {
   }, [pathname]);
 
   return (
-    <View style={styles.screen}>
+    <View style={styles.screen} pointerEvents="box-none">
+      <ScreenLayout>
       {showQueue ? (
         <QueuePanel
-          bottomInset={insets.bottom}
           state={queue}
           focusId={focusId}
           disabled={saveState.status === 'saving'}
@@ -924,7 +922,7 @@ export function ConversionScreen(): React.JSX.Element {
         />
       ) : (
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: bottomNavigationClearance(insets.bottom) + layout.screenPadding }]}
+        contentContainerStyle={styles.content}
         style={styles.scroll}
       >
         <View style={styles.inner}>
@@ -940,6 +938,9 @@ export function ConversionScreen(): React.JSX.Element {
               onQueue={() => router.push('/queue' as never)}
               onResults={() => router.push('/results' as never)}
             />
+          ) : null}
+          {showHome && recoveryNotice !== null ? (
+            <Banner variant="warning" title="Interrupted conversion" message={recoveryNotice} />
           ) : null}
           {showConvert ? <View style={styles.header}>
             <BrandHeader />
@@ -994,7 +995,6 @@ export function ConversionScreen(): React.JSX.Element {
 
           {showQueue && queue.jobs.length > 0 ? (
             <QueuePanel
-              bottomInset={insets.bottom}
               state={queue}
               focusId={focusId}
               disabled={saveState.status === 'saving'}
@@ -1208,7 +1208,7 @@ export function ConversionScreen(): React.JSX.Element {
 
       {/* Without a file there is nothing to convert, so the action bar stays away. */}
       {showConvert && queue.jobs.length > 0 ? (
-        <View style={[styles.actionBar, { marginBottom: bottomNavigationClearance(insets.bottom) + spacing.sm }]}>
+        <View style={styles.actionBar}>
           {running !== null ? (
             <SecondaryButton
               label="Cancel all"
@@ -1249,6 +1249,7 @@ export function ConversionScreen(): React.JSX.Element {
           ) : null}
         </View>
       ) : null}
+      </ScreenLayout>
 
       <ConfirmDialog
         visible={confirmation !== null}
@@ -1421,13 +1422,13 @@ export function IntroOverlay({ reducedMotion }: { readonly reducedMotion: boolea
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: color.bg,
+    backgroundColor: 'transparent',
   },
   scroll: {
     flex: 1,
   },
   content: {
-    padding: layout.screenPadding,
+    paddingBottom: layout.screenPadding,
   },
   inner: {
     width: '100%',
@@ -1520,7 +1521,7 @@ const styles = StyleSheet.create({
   },
   actionBar: {
     gap: spacing.sm,
-    padding: layout.screenPadding,
+    paddingVertical: layout.screenPadding,
     borderTopWidth: 1,
     borderTopColor: color.border,
     backgroundColor: color.bg,
