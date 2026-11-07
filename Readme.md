@@ -4,13 +4,13 @@
 
 ## Status
 
-**Phases 1–8 are in implementation and verification; no phase is complete without its evidence.** Transmute now has local SQLite history and durable app-owned results. Automated and connected-device checks are being updated; the current phase checklist is in `implementation-plan.md` and `tasks.md`.
+**Phases 1–8 remain open pending their full acceptance evidence.** Transmute has local SQLite history and durable app-owned results. Current device evidence and remaining checks are recorded in `implementation-plan.md` and `tasks.md`.
 
 Historical A13 verification on 2026-11-07 used an earlier APK: Home safe areas, tabs, MP3 shortcut, Android Back, picker open/cancel, one 3-second MP3 conversion, ffprobe, SAF save with matching SHA-256, share sheet, and MIT/LGPL notices were checked. The three older cache outputs were preserved during that earlier debug update.
 
 Current automated checks pass: npm test reports 417 tests across 33 files, and npm run typecheck succeeds. The optimized ARMv7 release APK built successfully at 59,979,181 bytes. It contains the bundled Android JavaScript asset and libmunimffmpeg for armeabi-v7a. Its manifest has no INTERNET or broad storage permission, and its signing certificate matches the previously installed APK. The release update was installed with adb install -r; the three older outputs were present before installation, and no uninstall or data wipe was performed.
 
-The installed release package is not debuggable, and the A13 remains at its secure lock screen. The current app has not been opened, so current-route conversion, Results playback, subtitles, persistence after restart, missing-file behavior, notifications, accessibility, and safe deletion are not certified. No new sample outputs have been generated. See implementation-plan.md and tasks.md for the per-phase checklist.
+The corrected release cold-started on the unlocked A13 with SQLite available. One synthetic MP4-to-OPUS extraction produced a Ready 52.2 kB app-owned result, and its history entry remained after relaunch. Playback was attempted but did not yield a verifiable in-app playing state. All other per-format conversions, subtitles, notification/recovery flows, missing-file behavior, accessibility, and deletion controls remain unverified on device. The installed APK predates the latest source-only UI wording edit. See implementation-plan.md and tasks.md for the per-phase checklist.
 History and output files are kept on this device only. Conversion history uses a versioned SQLite database; completed media and extracted subtitles are copied to Transmute's app-owned Documents storage before they are marked complete. Startup checks interrupted records and missing output files. Results provide separate confirmed actions to delete one output, remove one result and its owned file, or clear all history and owned output files. Transmute does not upload results or require a network connection for conversion or history.
 
 ## Features implemented (device verification remains open)

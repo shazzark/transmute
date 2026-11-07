@@ -14,7 +14,7 @@
     "expo-router": "~58.0.28",
     "expo-sharing": "~58.0.20",
     "expo-splash-screen": "~58.0.12",
-    "expo-sqlite": "~58.0.15",
+    "expo-sqlite": "58.0.14",
     "expo-status-bar": "~58.0.4",
     "expo-system-ui": "~58.0.6",
     "expo-video": "~58.0.13",

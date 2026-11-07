@@ -1302,7 +1302,7 @@ export function ConversionScreen(): React.JSX.Element {
           {showActivity ? (
             <View style={styles.section}>
               <Text style={styles.title} accessibilityRole="header" allowFontScaling>Notifications</Text>
-              <Text style={styles.caption} allowFontScaling>Conversion activity from this app session. It clears when Transmute restarts.</Text>
+              <Text style={styles.caption} allowFontScaling>This activity list covers the current app session. Saved conversions remain in Conversion history after Transmute restarts.</Text>
               {recoveryNotice !== null ? (
                 <View style={styles.activityRow}>
                   <Text style={styles.resultTitle}>Interrupted</Text>
@@ -1340,7 +1340,7 @@ export function ConversionScreen(): React.JSX.Element {
               <View style={styles.activityRow}>
                 <Text style={styles.resultTitle}>About Transmute</Text>
                 <Text style={styles.caption}>Version {Constants.expoConfig?.version ?? 'unknown'}</Text>
-                <Text style={styles.caption}>Transmute converts video and extracts audio locally on this device. Media files are not uploaded. Results and activity stay in memory for this app session and clear when it restarts.</Text>
+                <Text style={styles.caption}>Transmute converts media locally. Conversion history and app-owned output files stay on this device after a restart; nothing is uploaded.</Text>
               </View>
               <SecondaryButton label="Third-party notices and licenses" onPress={() => router.push('/notices' as never)} />
             </View>
@@ -1598,7 +1598,7 @@ function HomeDashboard({
           {recent.length > 0 ? <Pressable onPress={onResults} accessibilityRole="button" accessibilityLabel="View all results"><Text style={styles.link}>View all</Text></Pressable> : null}
         </View>
         {recent.length === 0 ? (
-          <Text style={styles.caption}>Your converted files will appear here for this session.</Text>
+          <Text style={styles.caption}>Your saved conversions will appear here.</Text>
         ) : recent.map((job) => (
           <Pressable key={job.id} onPress={onResults} accessibilityRole="button" style={styles.recentRow}>
             <Text style={styles.resultTitle} numberOfLines={1}>{job.output?.name}</Text>

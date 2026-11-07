@@ -74,7 +74,7 @@ Keep conversion proof separate from playback/preview proof. Mark a box only afte
 | WAV (PCM) | [ ] | [ ] |
 | FLAC | [ ] | [ ] |
 | OGG (Vorbis) | N/A — unavailable: this build has no OGG audio encoder; it needs `libvorbis` | N/A |
-| OPUS | [ ] | [ ] |
+| OPUS | [x] | [ ] |
 | Embed SRT in MP4, MKV, MOV, WEBM | [ ] | [ ] Track/content inspection per container |
 | Embed VTT in MP4, MKV, MOV, WEBM | [ ] | [ ] Track/content inspection per container |
 | Embed ASS in MKV (styled) | [ ] | [ ] Track/content inspection |
@@ -145,7 +145,14 @@ Current authorization: owner instruction on 2026-11-07 covers Phases 1–8, auto
 ## Current continuation update (2026-11-07)
 
 - `npm run typecheck` passes; `npm test` passes (33 files, 416 tests); `git -c core.whitespace=cr-at-eol diff --check` passes.
-- The A13 remains connected (`R58T402DKYB`, SM-A135F, Android 14), with about 13 GB free. A newly created `Download/Transmute-QA-20261107` directory contains only a small synthetic source video and SRT/VTT/ASS fixture files. No output conversions were created because the fresh native APK build is blocked; keep these fixtures and all older app data untouched.
-- Debug Gradle compilation stops in Reanimated C++ because `react/renderer/components/rnreanimated/Props.h` is absent. Forced app/module codegen tasks do not regenerate it. Clean Expo prebuild was rejected by automatic review because it deletes/replaces the ignored `C:\t\android` project. Do not bypass that rejection. The owner must approve regenerating that directory or provide another safe fix before device acceptance can continue.
-- The sample-output and playback checklist below is intentionally unchecked. No device sample output, playback, SQLite migration, restart, missing-file, or deletion result has been verified in this continuation.
+- Earlier lock-screen/build observations in this section are superseded by the post-unlock continuation below.
+- The sample-output and playback checklist remains unchecked except for the separate evidence recorded below. Keep all older app data untouched.
+
+## Device continuation update (2026-11-07, after unlock)
+
+- The unlocked A13 (`R58T402DKYB`) cold-started the corrected release with Expo SQLite available after pinning `expo-sqlite` to `58.0.14`.
+- The media-scanned synthetic QA MP4 was converted to OPUS. Results showed `Transmute-QA-source.opus`, Ready, 52.2 kB, its source, and an app-owned Documents path. Relaunch retained the result. This verifies OPUS conversion and local history recovery only.
+- Player interaction was attempted, but no observable in-app playing state could be confirmed; playback remains unchecked. Other formats, subtitles, notification/recovery, missing-file, accessibility, and safe-deletion checks remain open.
+- Automated checks after the pin and UI wording edits: 417 tests across 33 files passed; typecheck passed. The installed release predates only the latest source-copy edit.
+- No prior result was deleted. No phase is complete.
 

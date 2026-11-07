@@ -180,16 +180,24 @@ The older audit above is retained as historical evidence. This refresh records t
 
 | Phase | Implementation state | Automated evidence | Phone evidence | Open checks |
 |---|---|---|---|---|
-| 1 | MP4 route and device checks remain in scope | 416 tests pass; typecheck passes | Prior MP4 checks are historical; current conversion awaits this build | Current-route conversion and remaining device cases |
+| 1 | MP4 route and device checks remain in scope | 417 tests pass; typecheck passes | Historical MP4 checks remain; current OPUS conversion exercised the picker route, but MP4 conversion was not rerun | Current-route MP4 conversion and remaining device cases |
 | 2 | Output cleanup and cancellation paths implemented; durable copy is chunked and cancellable | Application suite passes; native copy awaits runtime test | Device reports 13 GB free; no storage-filling simulation attempted | Large input, low-space failure, copy cancel and cleanup measurements |
 | 3 | Foreground notification and scoped recovery logic implemented | Notification/recovery tests pass | Current notification/background/force-stop checks await install | Notification controls, background progress and force-stop recovery |
 | 4 | Queue, shared navigation/layout/touch, and bounded 20-row list implemented | 416 tests pass, including 20-row rendering and text preview | Prior Home/tab/Back checks recorded; new playback/20-row check pending | Device navigation during conversion, scrolling, playback, motion/accessibility |
-| 5 | All 10 catalogue audio/video presets remain conditional on encoder detection | Preset, command and probe tests pass | No new per-format conversion or playback evidence | Probe and playback every enabled format; adjust claims to actual result |
+| 5 | All 10 catalogue audio/video presets remain conditional on encoder detection | Preset, command and probe tests pass | OPUS extraction completed to a Ready 52.2 kB Results file; playback unconfirmed; other enabled formats not run | Probe and playback every remaining enabled format; adjust claims to actual result |
 | 6 | SRT/VTT/ASS input validation; ASS style preserved only in MKV; SRT/VTT extraction | Subtitle and pipeline tests pass | New subtitle-container evidence pending | Device embed/extract, inspect streams/content, playback/preview |
-| 7 | Notices/accessibility foundations implemented | Unit suite passes | Prior notices screen only; current accessibility/release checks open | Library audit, TalkBack/large text, E2E, release artifact/manifest/size |
-| 8 | SQLite v1, durable app-owned media and subtitle outputs, restart reconciliation, missing-file state, confirmed deletion controls implemented | 9 result-history tests and 416-test suite pass | Native migration/offline restart/deletion checks pending | Device restart, missing output and destructive-action scope |
+| 7 | Notices/accessibility foundations implemented | Unit suite passes | Optimized ARMv7 release built and installed; no current TalkBack or large-text run | Library audit, TalkBack/large text, E2E, release manifest/size review |
+| 8 | SQLite v1, durable app-owned media and subtitle outputs, restart reconciliation, missing-file state, confirmed deletion controls implemented | 9 result-history tests and 417-test suite pass | SQLite cold-started and OPUS result persisted after relaunch; migration, offline restart, missing-file, and deletion scope not demonstrated | Device restart, missing output and destructive-action scope |
 
-No phase is complete based on source code or automated checks alone. `npm test` passed (33 files, 416 tests); `npm run typecheck` passed. The direct non-clean debug build reaches C++ compilation but fails because Reanimated's generated `react/renderer/components/rnreanimated/Props.h` is absent. Forced module and app codegen tasks remain skipped/up-to-date and do not create it. Expo clean prebuild was rejected by automatic review because it replaces the entire ignored `C:\t\android` project and may destroy local native changes. Phone acceptance is blocked pending approval to regenerate that directory or another safe codegen fix.
+No phase is complete based on source code or automated checks alone. See the latest continuation record below for superseding device and build evidence.
+
+### Device continuation — 2026-11-07, after unlock
+
+The Samsung A13 (`R58T402DKYB`, SM-A135F, API 34, ARMv7) was unlocked. The corrected release with `expo-sqlite` pinned to Expo SDK's bundled `58.0.14` cold-started without the prior `ExpoSQLite` native-module crash. Results loaded the SQLite history screen. A synthetic QA MP4 with H.264/AAC and an embedded `mov_text` track plus staged SRT/VTT/ASS fixtures were used; the source was visible to Android's picker after a media scan. One OPUS extraction completed: Results showed `Transmute-QA-source.opus`, Ready, 52.2 kB, the source identity, and an app-owned Documents path. Relaunching Transmute retained the result and its detail page. Opening the player did not produce an observable in-app playback confirmation; playback remains unchecked. No existing results were deleted.
+
+The release APK installed before the last source-copy edit, so revised session/history wording is not yet in that APK. Device checks for other formats, subtitle operations, stream inspection, notifications/background behavior, force-stop recovery, missing-file behavior, accessibility, safe deletion, and release E2E remain open. The app must be returned to Results before handoff.
+
+Latest automated evidence: `npm test` passed 417 tests across 33 files and `npm run typecheck` passed after the SQLite pin and UI wording edits. No phase is complete because its required device evidence remains incomplete.
 
 ### Phase 5 â€” Format matrix and audio extraction
 
