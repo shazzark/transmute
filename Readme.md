@@ -63,10 +63,10 @@ Conversions run in the app's own process, so Android needs a foreground service 
 
 Subtitles are handled as text tracks only â€” nothing is burned into the picture.
 
-- **Embed:** one SRT, WebVTT, or ASS sidecar at a time. Sidecars are validated before the engine reads them. ASS is offered only with MKV because MP4, MOV, and WebM cannot preserve ASS styling. Device verification for every container/sidecar pair remains open.
+- **Embed:** one SRT, WebVTT, or ASS sidecar at a time. Sidecars are validated before the engine reads them. ASS is offered only with MKV because MP4, MOV, and WebM cannot preserve ASS styling. Host fixture checks confirm the expected subtitle codecs, but A13 in-app verification for every container/sidecar pair remains open while ADB is unauthorized.
 - **Extract:** supported embedded text tracks can be copied to SRT or VTT. The extracted file is kept in app-owned storage and appears in persistent Results, where its first 100 lines can be previewed; it can also be shared or saved to a folder. A subtitle is text, so it is not offered to Photos.
 
-The table records the requested codec mapping; player behavior is descriptive, not tested on this device. Subtitle track listings and playback remain unverified for every container.
+The table records the requested codec mapping; player behavior is descriptive, not tested on this device. Subtitle track listings, in-app playback, extraction, and Results preview remain unverified on the A13. Host fixture checks are not device acceptance evidence.
 
 | Output format | Subtitle codec | What players do with it |
 |---|---|---|

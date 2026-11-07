@@ -207,6 +207,14 @@ The original 160×144 source's MP4 attempt failed with: `The video is 160×144, 
 
 Subtitle phone operations remain blocked by preservation: the queue contains older completed jobs and `Clear finished` deletes each finished job's cache output directory. That may include older user outputs, so it was not used. No subtitle device conversion, track inspection, or preview is claimed. Remaining device checks include subtitle operations, private output `ffprobe`, low storage, large files, active/copy cancellation, notifications, interrupted-job recovery, 20-row responsiveness, accessibility, missing-file behavior, and deletion controls. No phase is complete.
 
+### Subtitle acceptance continuation — 2026-11-07
+
+ADB reports the connected Samsung A13 as `unauthorized`; restarting the ADB server did not change that state. Phone interaction is blocked, so there is no new in-app subtitle conversion, Results preview, playback, private-file export, or device evidence. The requested first review item (a video with an embedded subtitle and its readable extracted subtitle in Results) is not available yet. Do not clear completed rows or delete existing outputs to work around this access issue.
+
+Independent host checks used only synthetic fixtures in `.local-recovery/Transmute-Subtitle-Audit-20261107-r2/`. `ffprobe` confirmed MP4 and MOV SRT/VTT subtitle streams as `mov_text`, MKV SRT/VTT as `subrip`, MKV ASS as `ass`, and re-encoded WebM SRT/VTT as `webvtt`, alongside video and audio streams. Host extraction from the MP4 fixture preserved the cue text and 0.500–2.400 second timestamps in SRT and VTT. ASS extraction from the MKV preserved the `Default` style and cue; its timestamps are 0.520–2.420 against a video start of 0.023 seconds, so relative timing is 0.500–2.400. This muxer timeline offset is noted for on-device confirmation. The initial invalid WebM copy attempt is not evidence of a valid output.
+
+`npm test` passed 417 tests across 33 files and `npm run typecheck` passed. These automated and host media checks do not complete device acceptance. Subtitles, private-output inspection, background/notification actions, cancellation/cleanup, large/low-storage cases, 20-row responsiveness, offline/missing-file/deletion behavior, TalkBack/large text/reduced motion, and final release gates remain open. All phases remain incomplete.
+
 ### Phase 5 â€” Format matrix and audio extraction
 
 **Current status:** Preset catalogue, runtime encoder/input checks, visible unavailable reasons, audio extraction, validation, command generation, and support matrix are implemented. Preset/encoder/probe/command tests pass. The A13 produced and played Ready results for every enabled audio/video format. The private app-owned output bytes were not separately inspected with `ffprobe`, so Phase 5 remains incomplete.

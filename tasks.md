@@ -165,3 +165,23 @@ Current authorization: owner instruction on 2026-11-07 covers Phases 1–8, auto
 - Device subtitle embed/extract could not be run safely: the queue contains older completed cache outputs, and its `Clear finished` handler deletes each row's cache output directory. Clearing it risks removing prior user outputs. Subtitle fixture and device evidence remain open; no subtitle conversion or preview is claimed.
 - Phase 2 cancellation evidence is limited to safely cancelling waiting rows. Low-storage, large-file, active conversion cancel, copy cancellation, notification/background/recovery, 20-row, TalkBack/large-text, and deletion/missing-file device checks remain open.
 
+## Subtitle and reliability continuation (2026-11-07)
+
+- ADB returned `R58T402DKYB unauthorized` on each check, including after restarting the ADB server. The installed app could not be controlled; no conversion, Results preview, playback, export, deletion, or accessibility action was performed on the phone in this continuation.
+- Host-only isolated QA files were checked with FFmpeg 8.0/ffprobe 8.0. MP4 and MOV accept SRT/VTT as `mov_text`; MKV accepts SRT/VTT as `subrip` and ASS as `ass`; WebM SRT/VTT fixtures were re-encoded with VP9/Opus and carry `webvtt`. Every valid matrix output has video, audio, and subtitle streams. A first WebM stream-copy attempt is an invalid 284-byte diagnostic and is not a valid sample.
+- Host extraction of the MP4 QA track to SRT and VTT preserved the cue text `Transmute A13 subtitle verification` and 0.500–2.400 second timestamps. ASS extraction from MKV preserved `Style: Default` and the cue text; MKV timestamps are 0.520–2.420 on the muxed file, with video beginning at 0.023 seconds (a 0.500–2.400 second relative offset). This 23 ms container timeline offset needs device-app confirmation before asserting exact timing behavior.
+- These host artifacts do not satisfy in-app embedding, track inspection, playback, extraction, or Results preview acceptance. The first requested review item—a Results video with embedded subtitles and a readable extracted subtitle—is therefore still blocked until ADB is authorized.
+- `npm test` passed 417 tests across 33 files; `npm run typecheck` passed. No phase is complete. Preserve existing Results and do not use Clear finished.
+
+| Device acceptance item | Conversion/operation | Track/content inspection | Playback/preview | Status |
+|---|---|---|---|---|
+| SRT → MP4, MKV, MOV, WebM | [ ] | [ ] | [ ] | Blocked: ADB unauthorized; host mux matrix only |
+| VTT → MP4, MKV, MOV, WebM | [ ] | [ ] | [ ] | Blocked: ADB unauthorized; host mux matrix only |
+| ASS → MKV with style | [ ] | [ ] | [ ] | Blocked: ADB unauthorized; host style extraction only |
+| Embedded track → SRT and VTT | [ ] | [ ] | [ ] | Blocked: ADB unauthorized; host MP4 extraction only |
+| Private app outputs: ffprobe all enabled formats | [ ] | [ ] | N/A | Blocked: app inaccessible; exported QA copies not yet available |
+| Background/notification actions; active and copy cancellation; interrupted recovery | [ ] | [ ] | N/A | Blocked: ADB unauthorized |
+| Large-file and controlled low-storage cleanup | [ ] | [ ] | N/A | Blocked: ADB unauthorized; no device storage was consumed |
+| 20-item responsiveness; TalkBack, large text, reduced motion | [ ] | [ ] | N/A | Blocked: ADB unauthorized |
+| Offline restart, missing-file handling, safe QA deletion | [ ] | [ ] | N/A | Blocked: ADB unauthorized; no existing results deleted |
+
