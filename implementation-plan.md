@@ -4,7 +4,7 @@
 >
 > **Document rules:** `[Confirmed]`, `[Inferred]`, `[Recommended]`, `[Open question]` as defined in `project-brief.md`. The owner authorized implementation through Phase 7 on 2026-10-29. Phase status below separates code, automated evidence, and device evidence.
 
-**Status:** Phases 1â€“7 remain open where acceptance evidence is incomplete; Phase 8 is documented for later discussion and is not authorized for implementation | **Plan owner:** `shazzark` | **Scope/version:** `v0.1-mvp`
+**Status:** Phases 1â€“7 remain open where acceptance evidence is incomplete; Phase 8 is approved and in progress. Implementation, automated verification, and phone verification are tracked separately below. | **Plan owner:** `shazzark` | **Scope/version:** `v0.1-mvp`
 
 ## 2026-10-30 continuation evidence
 
@@ -165,6 +165,23 @@ The phase review against current source and recorded evidence keeps every phase 
 
 Checks run 2026-11-07: npm run typecheck passed; npm test passed (31 files, 400 tests); npx expo config --type public --json passed; npx expo export --platform android --output-dir .expo-export-check bundled 1,375 modules successfully; npx expo run:android built the fresh armeabi-v7a debug APK and installed/launched it on R58T402DKYB. Phone checks covered Home/safe areas, all tabs, MP3 shortcut, Android Back, picker, one MP3 conversion, SAF save with matching size/hash, share sheet opening, and in-app notices. `ffprobe` confirmed MP3 audio and 3.000 seconds. The test job and only generated test files were removed; three older app-cache outputs remain untouched. Notification/background, 20-row, remaining format/subtitle, playback, accessibility, recovery, and release checks remain open. No phase is complete based on code presence alone.
 
+### Verification refresh — 2026-11-07, after Phase 8 approval
+
+The older audit above is retained as historical evidence. This refresh records the current continuation and supersedes stale statements there about the test runner, ADB availability, and Phase 8 authorization.
+
+| Phase | Implementation state | Automated evidence | Phone evidence | Open checks |
+|---|---|---|---|---|
+| 1 | MP4 route and device checks remain in scope | 416 tests pass; typecheck passes | Prior MP4 checks are historical; current conversion awaits this build | Current-route conversion and remaining device cases |
+| 2 | Output cleanup and cancellation paths implemented; durable copy is chunked and cancellable | Application suite passes; native copy awaits runtime test | Device reports 13 GB free; no storage-filling simulation attempted | Large input, low-space failure, copy cancel and cleanup measurements |
+| 3 | Foreground notification and scoped recovery logic implemented | Notification/recovery tests pass | Current notification/background/force-stop checks await install | Notification controls, background progress and force-stop recovery |
+| 4 | Queue, shared navigation/layout/touch, and bounded 20-row list implemented | 416 tests pass, including 20-row rendering and text preview | Prior Home/tab/Back checks recorded; new playback/20-row check pending | Device navigation during conversion, scrolling, playback, motion/accessibility |
+| 5 | All 10 catalogue audio/video presets remain conditional on encoder detection | Preset, command and probe tests pass | No new per-format conversion or playback evidence | Probe and playback every enabled format; adjust claims to actual result |
+| 6 | SRT/VTT/ASS input validation; ASS style preserved only in MKV; SRT/VTT extraction | Subtitle and pipeline tests pass | New subtitle-container evidence pending | Device embed/extract, inspect streams/content, playback/preview |
+| 7 | Notices/accessibility foundations implemented | Unit suite passes | Prior notices screen only; current accessibility/release checks open | Library audit, TalkBack/large text, E2E, release artifact/manifest/size |
+| 8 | SQLite v1, durable app-owned media and subtitle outputs, restart reconciliation, missing-file state, confirmed deletion controls implemented | 9 result-history tests and 416-test suite pass | Native migration/offline restart/deletion checks pending | Device restart, missing output and destructive-action scope |
+
+No phase is complete based on source code or automated checks alone. `npm test` passed (33 files, 416 tests); `npm run typecheck` passed. The direct non-clean debug build reaches C++ compilation but fails because Reanimated's generated `react/renderer/components/rnreanimated/Props.h` is absent. Forced module and app codegen tasks remain skipped/up-to-date and do not create it. Expo clean prebuild was rejected by automatic review because it replaces the entire ignored `C:\t\android` project and may destroy local native changes. Phone acceptance is blocked pending approval to regenerate that directory or another safe codegen fix.
+
 ### Phase 5 â€” Format matrix and audio extraction
 
 **Current status:** Preset catalogue, runtime encoder/input checks, visible unavailable reasons, audio extraction, validation, command generation, and support matrix are implemented. Preset/encoder/probe/command tests pass. Real device conversions and `ffprobe`/playback remain unverified for all enabled formats except historical MP4 evidence, which predates the current route. Phase 5 is incomplete.
@@ -219,25 +236,25 @@ Checks run 2026-11-07: npm run typecheck passed; npm test passed (31 files, 400 
 - **Risks/blockers:** the licence audit can invalidate the release (if the bundled libraries impose terms the project cannot meet), which is why it is a stop condition rather than a checklist item; E2E tooling may simply not work on Windows.
 - **Completion conditions:** all criteria evidenced, audit signed off by the owner, release candidate installed and used for one full conversion, final report published in the repository.
 
-### Phase 8 â€” Persistent Results and Storage (future; details to discuss)
+### Phase 8 â€” Persistent Results and Storage (approved; implementation in progress)
 
-**Current status:** Planned only. No schema, storage adapter, migration, or user-facing controls are implemented for this phase. The existing session-only result list and app-cache outputs remain the current behavior. This phase is intentionally deferred until its details and acceptance choices are discussed.
+**Current status:** Approved by the owner on 2026-11-07 and under implementation. SQLite schema v1, a versioned migration runner, durable app-owned outputs, reconciliation, missing-file handling, and confirmed history/file actions are in source. Automated tests pass; native and phone checks remain open.
 
 - **Objective:** Keep a useful, private conversion history and durable outputs across app restarts, with clear recovery and deletion behavior.
 - **Scope:** Local SQLite conversion history; durable output files stored in app-owned storage; restart recovery that reconciles records with files and interrupted work; explicit missing-file states; user controls to clear history and delete app-owned output files. All records and media stay on-device and work offline. No account, sync, upload, analytics, or network dependency is introduced.
-- **Dependencies:** Phase 2's output and cleanup contracts; Phase 4's queue/result identity and lifecycle; Phase 7's release, privacy, and data-retention review. Final schema, retention rules, and clear/delete semantics require product discussion before implementation.
+- **Dependencies:** Phase 2's output and cleanup contracts; Phase 4's queue/result identity and lifecycle; Phase 7's release, privacy, and data-retention review. The owner approved local offline implementation and explicit delete semantics on 2026-11-07. No retention limit is added; clearing is user initiated.
 - **Deliverables:** versioned SQLite schema and migration path; storage boundary for durable app-owned outputs; restart reconciliation and interruption recovery; missing-file UI; separately clearable history and output-deletion controls with confirmed behavior; tests and device evidence.
-- **Acceptance criteria (proposed for discussion):**
+- **Acceptance criteria:**
   1. Completed conversion records and their app-owned output files remain available after force-stop and relaunch, with metadata matching the converted result.
   2. Recovery marks interrupted jobs accurately and never reports an incomplete output as successful.
   3. If a recorded output is absent or unreadable, the history row clearly reports that state and offers only actions that can succeed; opening, sharing, and deleting it do not crash.
   4. Clearing history and deleting output files have explicit, separately understood effects; a user can remove one result and all associated app-owned bytes without touching files outside app storage.
-  5. Database migrations preserve valid history across an app upgrade; corrupt or unsupported database state has a documented, user-visible recovery path.
+  5. Versioned database migrations preserve valid history across an app upgrade; unsupported future schema versions fail safely without deleting database or output files.
   6. History and outputs remain available with networking disabled; the app adds no network permission or remote storage path for this feature.
   7. Automated tests cover persistence/restart reconciliation, migrations, missing files, individual deletion, clear-history behavior, and cleanup failures; physical-device checks confirm offline restart and storage behavior.
 - **Verification:** SQLite repository and migration tests; application recovery tests with missing, partial, and valid files; Android restart/force-stop and offline checks; storage inspection proving app-owned placement and deletion boundaries.
-- **Risks/open decisions:** SQLite schema and migration ownership; whether clearing history keeps or deletes output files by default; whether interrupted rows are retained; output retention and low-storage policy; safe handling of missing, externally removed, or partially written files. Resolve these with the owner before implementation.
-- **Completion conditions:** decisions recorded in the requirements and technical design, all acceptance evidence attached, and owner approval. This phase is not part of current execution authorization.
+- **Risks/open decisions:** low-space copy failure and device force-stop behavior need phone evidence. Missing/corrupt data must not trigger broad cache deletion; recovery only removes exact app-owned paths.
+- **Completion conditions:** schema/migration and failure tests pass; offline restart and missing-file behavior are demonstrated on device; deletion scope is verified; remaining evidence is recorded separately from implementation. Phase 8 remains open until then.
 
 ## Change process
 

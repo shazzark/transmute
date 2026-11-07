@@ -4,9 +4,9 @@
 >
 > **Document rules:** `[Confirmed]`/`[Inferred]`/`[Recommended]`/`[Open question]` as defined in `project-brief.md`. T-01â€“T-13 are historical Phase 1 records; current cross-phase execution status is maintained below and in `implementation-plan.md`.
 
-**Status:** Authorized execution through Phase 7; earlier phases have open evidence gaps | **Owner:** `shazzark` | **Updated:** 2026-11-07
+**Status:** Authorized execution through Phase 8; Phases 1–8 have open acceptance evidence | **Owner:** `shazzark` | **Updated:** 2026-11-07
 
-**Future phase:** Phase 8, “Persistent Results and Storage,” is documented in `implementation-plan.md` for discussion only; it is not authorized for implementation. It is local and offline by requirement.
+**Approved scope:** Phase 8, “Persistent Results and Storage,” was approved for implementation on 2026-11-07. It remains local and offline. Keep implementation, automated checks, and phone evidence distinct.
 
 ## Current continuation (2026-10-30)
 
@@ -16,11 +16,11 @@
 
 ## Current execution checklist
 
-## Future phase task (discussion only)
+## Approved Phase 8 task
 
 | ID | Work item | Deliverable | Dependencies | Acceptance/check | Owner/status |
 |---|---|---|---|---|---|
-| F-01 | Define and, after discussion, implement Phase 8: SQLite conversion history, durable app-owned output files, restart recovery, missing-file handling, and clear-history/file-deletion controls | Versioned schema and migrations; persistent storage/recovery behavior; explicit deletion controls; tests and device evidence | Phase 2 output/cleanup contracts; Phase 4 result identity/lifecycle; Phase 7 privacy/release review; owner decisions on retention, interrupted rows, and clear/delete semantics | Records/files survive force-stop and relaunch offline; migrations preserve history; interrupted/missing outputs are accurately represented; clear history and delete files have understood, tested effects; no remote dependency | **Planned only; details to discuss before implementation** |
+| F-01 | Implement Phase 8: SQLite conversion history, durable app-owned media and subtitle files, restart recovery, missing-file handling, and clear-history/file-deletion controls | Versioned schema/migration, persistent storage/recovery, explicit confirmed deletion controls, tests and device evidence | Phase 2 output/cleanup contracts; Phase 4 result identity/lifecycle; Phase 7 privacy/release review | Offline records/files survive restart; migrations preserve existing user data; interrupted/missing outputs are accurately shown; delete and clear actions affect only app-owned files; no network dependency | **Implementation and automated tests present; device checks open** |
 
 ## Current continuation (2026-11-05)
 
@@ -35,7 +35,7 @@
 - [x] Reproduce and fix queue startup being blocked on notification permission.
 - [x] Add rapid-start guard, notification destination validation, interruption cleanup tests, and a cold-start Home notice for recovered jobs.
 - [x] Configure Expo Router routes and keep the processing controller mounted above them.
-- [x] Add session-only results, file save/share actions, startup notification permission/channel setup, and completion notices.
+- [x] Add SQLite-backed conversion/subtitle results, durable file save/share actions, startup notification permission/channel setup, and completion notices; device acceptance remains open.
 - [x] Add native `dataSync` timeout cancellation and notification deep-link intent.
 - [x] Render queue jobs through a bounded-window `FlatList`; the 20-row configuration test passes.
 - [ ] Verify 20-row responsiveness on the device.
@@ -50,6 +50,28 @@
 - [ ] Complete TalkBack/200% text, E2E, release artifact, and release-manifest gates.
 
 Current evidence (2026-11-07): npm run typecheck passes; npm test passes (31 files, 400 tests); npx expo config --type public --json passes; npx expo export --platform android --output-dir .expo-export-check bundles 1,375 modules (generated output removed); npx expo run:android built and installed/launched the fresh armeabi-v7a debug APK on R58T402DKYB. The A13 check covered Home safe areas, tabs, MP3 shortcut, Back, picker open/cancel, notices, one 3-second MP3 conversion, `ffprobe` output (73,493 bytes), SAF save with matching SHA-256, share-sheet open/back, and clearing the generated test job. The app’s three older cache outputs were preserved. Notification/background, 20-row, remaining format/subtitle, playback, recovery, accessibility, and release checks remain open. `git -c core.whitespace=cr-at-eol diff --check` is the repository check for its CRLF files.
+
+## Device format checklist
+
+Keep conversion proof separate from playback/preview proof. Mark a box only after an output is retained in Results and inspected on the A13. Sample records created for this checklist must remain on the phone for owner review.
+
+| Test sample | Conversion/stream check | Playback or preview in Transmute |
+|---|---|---|
+| MP4 (H.264/AAC) | [ ] | [ ] |
+| MKV (H.264/AAC) | [ ] | [ ] |
+| MOV (H.264/AAC) | [ ] | [ ] |
+| WEBM (VP9/Opus) | [ ] | [ ] |
+| MP3 | [ ] | [ ] |
+| M4A (AAC) | [ ] | [ ] |
+| WAV (PCM) | [ ] | [ ] |
+| FLAC | [ ] | [ ] |
+| OGG (Vorbis) | [ ] Encoder availability to confirm; current FFmpeg build recipe does not enable libvorbis | [ ] |
+| OPUS | [ ] | [ ] |
+| Embed SRT in MP4, MKV, MOV, WEBM | [ ] | [ ] Track/content inspection per container |
+| Embed VTT in MP4, MKV, MOV, WEBM | [ ] | [ ] Track/content inspection per container |
+| Embed ASS in MKV (styled) | [ ] | [ ] Track/content inspection |
+| Extract embedded track to SRT | [ ] Preview text/cues in results |
+| Extract embedded track to VTT | [ ] Preview text/cues in results |
 
 ## Phase objective and links
 
@@ -110,5 +132,12 @@ Not accepted as completion evidence: a green unit suite alone, a build that comp
 
 Links: `implementation-plan.md` (phase definition and completion), `prd.md` (PR-01 to PR-14), `trd.md` (TR-01 to TR-30, test strategy), `architecture.md` (components, D1â€“D8, design tokens).
 
-Authorization: owner instruction dated 2026-10-29 covers continued implementation, dependencies, tests, native builds/device installation when accessible, documentation, and local commits. Do not push or publish. The historical Phase 1 rows above are retained as evidence, not as current authorization gates.
+Current authorization: owner instruction on 2026-11-07 covers Phases 1–8, automated/device verification, documentation, and local commits; a later instruction authorizes pushing a verified commit to the configured remote/current branch. Do not publish the app. The historical Phase 1 rows above remain evidence, not current authorization gates.
+
+## Current continuation update (2026-11-07)
+
+- `npm run typecheck` passes; `npm test` passes (33 files, 416 tests); `git -c core.whitespace=cr-at-eol diff --check` passes.
+- The A13 remains connected (`R58T402DKYB`, SM-A135F, Android 14), with about 13 GB free. A newly created `Download/Transmute-QA-20261107` directory contains only a small synthetic source video and SRT/VTT/ASS fixture files. No output conversions were created because the fresh native APK build is blocked; keep these fixtures and all older app data untouched.
+- Debug Gradle compilation stops in Reanimated C++ because `react/renderer/components/rnreanimated/Props.h` is absent. Forced app/module codegen tasks do not regenerate it. Clean Expo prebuild was rejected by automatic review because it deletes/replaces the ignored `C:\t\android` project. Do not bypass that rejection. The owner must approve regenerating that directory or provide another safe fix before device acceptance can continue.
+- The sample-output and playback checklist below is intentionally unchecked. No device sample output, playback, SQLite migration, restart, missing-file, or deletion result has been verified in this continuation.
 

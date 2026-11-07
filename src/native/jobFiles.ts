@@ -24,6 +24,7 @@ export function createJobFilePorts(): JobFilePorts {
       jobCounter += 1;
       const directory = new Directory(Paths.cache, 'transmute', `job-${Date.now()}-${jobCounter}`);
       directory.create({ intermediates: true, idempotent: true });
+      await recordActiveJobDirectory(directory.uri);
       return directory.uri;
     },
 
@@ -58,10 +59,22 @@ const cacheJobs = new Directory(Paths.cache, 'transmute');
 const recoveryDirectory = new Directory(Paths.document, 'transmute');
 const recoveryMarker = new File(recoveryDirectory, 'active-job');
 
-/** Stores no media metadata: it only marks that the cache may contain partial work. */
+/** Records only the current app-owned job path so recovery never sweeps old results. */
 export async function markConversionRunning(): Promise<void> {
   recoveryDirectory.create({ intermediates: true, idempotent: true });
-  recoveryMarker.write('active');
+  recoveryMarker.write(JSON.stringify({ state: 'active', jobDirectory: null }));
+}
+
+async function recordActiveJobDirectory(jobDirectory: string): Promise<void> {
+  if (!recoveryMarker.exists) return;
+  try {
+    const marker = JSON.parse(await recoveryMarker.text()) as { state?: string };
+    if (marker.state !== 'active') return;
+  } catch {
+    return;
+  }
+  recoveryDirectory.create({ intermediates: true, idempotent: true });
+  recoveryMarker.write(JSON.stringify({ state: 'active', jobDirectory }));
 }
 
 export async function clearConversionMarker(): Promise<void> {
@@ -90,11 +103,25 @@ export const interruptedRecoveryPorts: InterruptedRecoveryPorts = {
   async hasActiveMarker(): Promise<boolean> {
     return recoveryMarker.exists;
   },
-  async removePartialOutputs(): Promise<void> {
-    if (!cacheJobs.exists) return;
-    for (const entry of cacheJobs.list()) {
-      if (entry instanceof Directory) entry.delete();
+  async removePartialOutputs(): Promise<boolean> {
+    if (!recoveryMarker.exists) return false;
+    let marker: { state?: string; jobDirectory?: unknown };
+    try {
+      marker = JSON.parse(await recoveryMarker.text()) as { state?: string; jobDirectory?: unknown };
+    } catch {
+      // A legacy or corrupt marker has no safe path to delete. Preserve every cache result.
+      return false;
     }
+    if (marker.state !== 'active' || typeof marker.jobDirectory !== 'string') return false;
+
+    const prefix = `${cacheJobs.uri.replace(/\/+$/, '')}/`;
+    const path = marker.jobDirectory;
+    const name = path.startsWith(prefix) ? path.slice(prefix.length) : '';
+    if (!/^job-\d+-\d+$/.test(name)) return false;
+    const directory = new Directory(path);
+    if (!directory.exists) return true;
+    directory.delete();
+    return true;
   },
   clearActiveMarker: clearConversionMarker,
 };

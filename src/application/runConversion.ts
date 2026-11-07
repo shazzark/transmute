@@ -337,7 +337,7 @@ export async function runConversion(options: RunConversionOptions): Promise<Conv
     // A sidecar needs a container with a subtitle stream. The screen does not
     // offer the option for those presets, so this is a guard: it fails before a
     // job directory exists, which means there is nothing to clean up.
-    const subtitleTarget = subtitleTargetFor(preset);
+    const subtitleTarget = subtitleTargetFor(preset, sidecar?.format);
     if (sidecar !== undefined && subtitleTarget === null) {
       const unsupported = describeSubtitleUnsupported(preset.label);
       dispatch({ type: 'convert/failed', failure: unsupported });

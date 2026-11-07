@@ -42,6 +42,7 @@ const BY_EXTENSION: Record<string, readonly string[]> = {
   // still only index text under `text/plain`.
   srt: ['application/x-subrip', TEXT_PLAIN],
   vtt: ['text/vtt', TEXT_PLAIN],
+  ass: ['text/x-ssa', TEXT_PLAIN],
   txt: [TEXT_PLAIN],
 };
 

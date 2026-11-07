@@ -1,15 +1,22 @@
 export interface InterruptedRecoveryPorts {
   hasActiveMarker(): Promise<boolean>;
-  removePartialOutputs(): Promise<void>;
+  removePartialOutputs(): Promise<boolean>;
   clearActiveMarker(): Promise<void>;
 }
 
-/** Removes cache outputs left by a process death before the next job can start. */
+export interface InterruptedRecoveryResult {
+  readonly interrupted: boolean;
+  readonly cleanedPartialFiles: boolean;
+}
+
+/** Cleans only a job directory identified by the app-owned marker. */
 export async function recoverInterruptedJob(
   ports: InterruptedRecoveryPorts,
-): Promise<boolean> {
-  if (!(await ports.hasActiveMarker())) return false;
-  await ports.removePartialOutputs();
+): Promise<InterruptedRecoveryResult> {
+  if (!(await ports.hasActiveMarker())) {
+    return { interrupted: false, cleanedPartialFiles: false };
+  }
+  const cleanedPartialFiles = await ports.removePartialOutputs();
   await ports.clearActiveMarker();
-  return true;
+  return { interrupted: true, cleanedPartialFiles };
 }

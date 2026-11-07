@@ -315,8 +315,8 @@ export function describeSidecarProblem(
       return {
         code: 'subtitle-invalid',
         title: 'Not a subtitle file',
-        message: `${fileName} is not a subtitle file. This build embeds SubRip (.srt) files.`,
-        recovery: 'Choose a file whose name ends in .srt.',
+        message: `${fileName} is not a supported sidecar subtitle file.`,
+        recovery: 'Choose a SubRip (.srt), WebVTT (.vtt), or ASS (.ass) text file.',
       };
     case 'empty':
       return {
@@ -344,8 +344,15 @@ export function describeSidecarProblem(
         code: 'subtitle-invalid',
         title: 'Cue times are unreadable',
         message: `${fileName} has a cue${where} whose times cannot be read.`,
-        recovery: 'Open the file in a subtitle editor, re-save it as SubRip, then choose it again.',
-        detail: 'Cue times look like: 00:00:12,480 --> 00:00:15,000 (the end must be after the start).',
+        recovery: 'Open the file in a subtitle editor, correct its cue times, then choose it again.',
+        detail: 'SubRip/WebVTT use 00:00:12.480 --> 00:00:15.000; ASS uses 0:00:12.48, with the end after the start.',
+      };
+    case 'bad-header':
+      return {
+        code: 'subtitle-invalid',
+        title: 'Subtitle header is unreadable',
+        message: `${fileName} does not contain the required ${fileName.toLowerCase().endsWith('.ass') ? 'ASS Events' : 'WebVTT'} header.`,
+        recovery: 'Re-save the subtitle in its named format, then choose it again.',
       };
     default: {
       const unhandled: never = problem.problem;

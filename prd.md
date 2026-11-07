@@ -107,12 +107,12 @@ Goals: the user finishes a conversion without training; the app never leaves deb
 - **Acceptance criteria:** Given a job that fails because storage filled up, when it ends, then the message names storage and suggests freeing space, and the file can be retried without re-picking. Given a job killed by the system, when the app is reopened, then it reads "Interrupted" and explains that the job did not finish. Given an unmapped engine exit code, then the app shows the unknown bucket plus the code, and logs the mapping gap.
 - **Related journey/dependency:** TR-30; Phase 1 (first four causes), Phase 3 (interrupted).
 
-### PR-13 History
+### PR-13 Persistent conversion history and results
 
-- **Requirement:** Completed, failed, and cancelled jobs remain visible for the current session only. There is no database and no cross-launch history in the MVP; the app starts empty each launch apart from interrupted-job reporting.
-- **Priority/status:** P1 [Recommended], authorized; acceptance evidence pending.
-- **Acceptance criteria:** Given a finished job, when the app is closed and reopened, then no history rows are shown, and only an "interrupted" notice appears if a job was cut off.
-- **Related journey/dependency:** PR-14; out of scope for persistence.
+- **Requirement:** On-device conversion and subtitle-extraction records and their completed outputs remain available across app restarts. History uses local SQLite and outputs use app-owned durable storage. Startup identifies interrupted and missing outputs. Users can delete one output while retaining its history, remove one result and its owned file, or clear history and app-owned output files after confirmation. The feature works offline and never deletes files outside Transmute storage.
+- **Priority/status:** P1, approved for Phase 8 on 2026-11-07; implementation present, acceptance evidence pending.
+- **Acceptance criteria:** Completed outputs remain playable or previewable after restart; interrupted rows never claim success; missing files are clearly identified; individual and bulk deletion affect only owned files; migrations preserve existing history; no remote service is used.
+- **Related journey/dependency:** PR-15; Phases 2, 4, and 7; Phase 8.
 
 ### PR-14 Idle and empty states
 
@@ -121,11 +121,11 @@ Goals: the user finishes a conversion without training; the app never leaves deb
 - **Acceptance criteria:** Given a first launch, when the screen appears, then exactly one primary action is visible ("Choose file") with a one-sentence explanation. Given no destination is chosen, then the destination line reads "Not chosen yet" rather than being blank.
 - **Related journey/dependency:** Phase 1; design system states in `architecture.md`.
 
-### PR-15 Navigation and session results
+### PR-15 Navigation and persistent results
 
-- **Requirement:** Home/Converter, Active Queue, Results, and Result Details are routable views. The queue controller stays mounted above route changes. Successful outputs appear in the current-process Results view with format, cache location, Save to Phone, and Share actions. History is in-memory only; no durable history database or stale cache-path persistence is added.
+- **Requirement:** Home/Converter, Active Queue, Results, and Result Details are routable views. The queue controller stays mounted above route changes. Successful outputs appear in persistent Results with format, app-owned storage status, in-app media playback or subtitle text preview, Save, Share, and explicit file/history controls.
 - **Priority/status:** P0, authorized; device acceptance pending.
-- **Acceptance criteria:** Navigation while converting does not restart or duplicate the job; result rows appear after success; save, share, cancellation, and failure states are truthful; missing session results show an explanatory message.
+- **Acceptance criteria:** Navigation while converting does not restart or duplicate the job; persisted rows appear after restart; save, share, playback, preview, cancellation, and failure states are truthful; missing output files show an explanatory state.
 
 ### PR-16 Notification permission and completion links
 
@@ -135,7 +135,7 @@ Goals: the user finishes a conversion without training; the app never leaves deb
 
 ## Out of scope
 
-Everything listed under non-goals in `mvp-scope.md`, plus: resuming an interrupted conversion, converting in parallel, background work without a visible notification, and any behavior that depends on a server. Subtitle handling (embed/extract) is documented in `mvp-scope.md` as P2 and is not part of this PRD's acceptance until Phase 6 is approved.
+Everything listed under non-goals in `mvp-scope.md`, plus: resuming an interrupted conversion, converting in parallel, background work without a visible notification, and any behavior that depends on a server. Subtitle handling (embed/extract) was approved in Phase 6; local persistent results were approved in Phase 8.
 
 ## Product constraints and open questions
 
@@ -151,7 +151,7 @@ Everything listed under non-goals in `mvp-scope.md`, plus: resuming an interrupt
 1. Can the destination folder be pre-filled from the source file's parent folder, or must the user always pick? (`ACTION_OPEN_DOCUMENT_TREE` behaviour varies by provider.) [Open question]
 2. Should the app offer "Remux only" (no re-encode) as a fast path for already-compatible files? Tempting for speed, but it multiplies preset states. [Recommended: no, until Phase 5 data justifies it]
 3. Should output names be user-editable before saving? [Recommended: no for MVP — one less validation surface]
-4. Is a session-only job list acceptable, or does the absence of history read as data loss? [Open question — only real users can answer]
+4. Is a session-only job list acceptable, or does the absence of history read as data loss? **Answered by the owner on 2026-11-07:** keep local offline SQLite history and durable app-owned outputs; expose confirmed controls for deleting outputs and clearing history. See PR-13 and Phase 8.
 
 ## Optional sections
 

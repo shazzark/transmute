@@ -26,6 +26,14 @@ const SRT = [
   'and a continuation',
   '',
 ].join('\r\n');
+const VTT = 'WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nWebVTT cue\n';
+const ASS = [
+  '[Script Info]',
+  'ScriptType: v4.00+',
+  '[Events]',
+  'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
+  'Dialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,ASS cue',
+].join('\n');
 
 describe('detectSidecarFormat', () => {
   it('accepts SubRip whatever the case or surrounding spaces', () => {
@@ -34,9 +42,9 @@ describe('detectSidecarFormat', () => {
     expect(detectSidecarFormat('  Trip 2026.Srt  ')).toBe('srt');
   });
 
-  it('refuses everything else by returning null', () => {
-    expect(detectSidecarFormat('Trip.vtt')).toBeNull();
-    expect(detectSidecarFormat('Trip.ass')).toBeNull();
+  it('recognizes SRT, WebVTT, and ASS by extension', () => {
+    expect(detectSidecarFormat('Trip.vtt')).toBe('vtt');
+    expect(detectSidecarFormat('Trip.ass')).toBe('ass');
     expect(detectSidecarFormat('Trip.mp4')).toBeNull();
     expect(detectSidecarFormat('srt')).toBeNull();
     expect(detectSidecarFormat('')).toBeNull();
@@ -51,6 +59,8 @@ describe('codec and demuxer names', () => {
 
   it('forces the SubRip demuxer for a sidecar', () => {
     expect(subtitleDemuxerFor('srt')).toBe('srt');
+    expect(subtitleDemuxerFor('vtt')).toBe('webvtt');
+    expect(subtitleDemuxerFor('ass')).toBe('ass');
   });
 });
 
@@ -137,7 +147,7 @@ describe('validateSrt', () => {
 
 describe('validateSidecar', () => {
   it('checks the name before the text, so a wrong file is named as such', () => {
-    expect(validateSidecar({ name: 'Trip.ass', text: SRT })).toEqual({
+    expect(validateSidecar({ name: 'Trip.txt', text: SRT })).toEqual({
       ok: false,
       problem: 'wrong-type',
       line: null,
@@ -163,6 +173,26 @@ describe('validateSidecar', () => {
       line: 1,
     });
   });
+
+  it.each([
+    ['Trip.vtt', VTT, 'vtt'],
+    ['Trip.ass', ASS, 'ass'],
+  ] as const)('validates %s and returns its cue range', (name, text, format) => {
+    expect(validateSidecar({ name, text })).toMatchObject({
+      ok: true,
+      format,
+      cueCount: 1,
+      firstCueLabel: '0:01',
+      lastCueLabel: '0:02',
+    });
+  });
+
+  it('rejects a WebVTT file without its header and an ASS file without an Events section', () => {
+    expect(validateSidecar({ name: 'bad.vtt', text: '00:00:01.000 --> 00:00:02.000\nCue' }))
+      .toMatchObject({ ok: false, problem: 'bad-header' });
+    expect(validateSidecar({ name: 'bad.ass', text: '[Script Info]\nDialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,Cue' }))
+      .toMatchObject({ ok: false, problem: 'bad-header' });
+  });
 });
 
 describe('subtitleTargetFor', () => {
@@ -171,6 +201,12 @@ describe('subtitleTargetFor', () => {
     expect(subtitleTargetFor(getPreset('mov'))?.codec).toBe('mov_text');
     expect(subtitleTargetFor(getPreset('mkv'))?.codec).toBe('srt');
     expect(subtitleTargetFor(getPreset('webm'))?.codec).toBe('webvtt');
+  });
+
+  it('preserves ASS styling only in Matroska and rejects lossy container changes', () => {
+    expect(subtitleTargetFor(getPreset('mkv'), 'ass')?.codec).toBe('ass');
+    expect(subtitleTargetFor(getPreset('mp4'), 'ass')).toBeNull();
+    expect(subtitleTargetFor(getPreset('webm'), 'ass')).toBeNull();
   });
 
   it('explains what each container does with the track', () => {

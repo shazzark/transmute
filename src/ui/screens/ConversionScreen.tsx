@@ -4,6 +4,7 @@ import { AccessibilityInfo, Animated, AppState, Linking, Platform, Pressable, Sc
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import * as Sharing from 'expo-sharing';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { usePathname, useRootNavigationState, useRouter } from 'expo-router';
 
 import { initialJobState, jobReducer, type JobAction } from '../../application/convertJob';
@@ -21,6 +22,16 @@ import { notificationDestination } from '../../application/notificationDestinati
 import { shouldPlayOpeningIntro } from '../../application/introLaunch';
 import { recoverInterruptedJob } from '../../application/recoverInterrupted';
 import {
+  beginHistoryRecord,
+  clearHistoryAndOutputs,
+  completeHistoryRecord,
+  deleteHistoryOutput,
+  recoverResultHistory,
+  removeHistoryRecord,
+  type HistoryRecord,
+  type ResultHistoryPorts,
+} from '../../application/resultHistory';
+import {
   createNotificationPublisher,
   notificationForQueue,
   type NotificationPublisher,
@@ -28,6 +39,7 @@ import {
 import { chooseSidecar } from '../../application/sidecar';
 import { resolveAvailability } from '../../domain/encoders';
 import { describePickFailure, describeUnexpectedFailure, type Failure } from '../../domain/errors';
+import { formatBytes } from '../format';
 import { describeOutcome } from '../../domain/jobNotification';
 import type { OutputFile } from '../../domain/mediaFiles';
 import { baseNameOf } from '../../domain/naming';
@@ -65,6 +77,7 @@ import { foregroundPorts } from '../../native/foregroundService';
 import { clearConversionMarker, interruptedRecoveryPorts, markConversionRunning, removeJobOutput, removePickedSource } from '../../native/jobFiles';
 import { savePorts } from '../../native/saveDestination';
 import { sidecarPorts } from '../../native/subtitlePicker';
+import { durableOutputStore, historyRepository } from '../../native/resultStorage';
 import { Banner } from '../components/Banner';
 import { BrandHeader, BrandMark } from '../components/BrandHeader';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -76,7 +89,9 @@ import { ProgressPanel } from '../components/ProgressPanel';
 import { QueuePanel } from '../components/QueuePanel';
 import { SavePanel } from '../components/SavePanel';
 import { SecondaryButton } from '../components/SecondaryButton';
+import { ResultPlayer } from '../components/ResultPlayer';
 import { SubtitlePanel } from '../components/SubtitlePanel';
+import { SubtitleResultPreview } from '../components/SubtitleResultPreview';
 import { VideoPreviewCard, type PreviewState } from '../components/VideoPreviewCard';
 import { color, layout, spacing, type } from '../tokens';
 import { updateQueueBadge } from '../navigation/queueBadge';
@@ -86,9 +101,57 @@ const NOTIFICATION_UNAVAILABLE =
   'Notifications are off for Transmute, so this conversion shows no progress in the notification shade. It still runs, and the queue here stays accurate.';
 
 /** Which confirmation dialog is open, if any. */
-type Confirmation = 'job' | 'all';
+type Confirmation = 'job' | 'all' | 'remove-result' | 'delete-output' | 'clear-history';
+
+function confirmationTitle(value: Confirmation | null): string {
+  switch (value) {
+    case 'all': return 'Cancel this batch?';
+    case 'job': return 'Cancel this conversion?';
+    case 'remove-result': return 'Remove this result?';
+    case 'delete-output': return 'Delete the output file?';
+    case 'clear-history': return 'Clear history and files?';
+    default: return '';
+  }
+}
+
+function confirmationLabel(value: Confirmation | null): string {
+  switch (value) {
+    case 'all': return 'Cancel everything';
+    case 'job': return 'Cancel conversion';
+    case 'remove-result': return 'Remove result and file';
+    case 'delete-output': return 'Delete output file';
+    case 'clear-history': return 'Clear history and files';
+    default: return 'Confirm';
+  }
+}
+
+function historyStatusLabel(status: HistoryRecord['status']): string {
+  switch (status) {
+    case 'converting': return 'Converting';
+    case 'completed': return 'Ready';
+    case 'interrupted': return 'Interrupted';
+    case 'failed': return 'Failed';
+    case 'cancelled': return 'Cancelled';
+    case 'missing': return 'Output missing';
+  }
+}
+
+function outputFileForHistory(record: HistoryRecord): OutputFile | null {
+  if (record.outputName === null || record.outputRelativePath === null) return null;
+  try {
+    return { name: record.outputName, path: durableOutputStore.uri(record.outputRelativePath) };
+  } catch {
+    return null;
+  }
+}
 
 let introAlreadyShown = false;
+
+const resultHistoryPorts: ResultHistoryPorts = {
+  repository: historyRepository,
+  files: durableOutputStore,
+  now: Date.now,
+};
 
 /**
  * The conversion screen: pick several files, convert them one after another.
@@ -141,6 +204,10 @@ export function ConversionScreen(): React.JSX.Element {
   const [shareNotice, setShareNotice] = useState<string | null>(null);
   const [recoveryNotice, setRecoveryNotice] = useState<string | null>(null);
   const [recoveryReady, setRecoveryReady] = useState(false);
+  const [history, setHistory] = useState<readonly HistoryRecord[]>([]);
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const [historyTarget, setHistoryTarget] = useState<string | null>(null);
+  const [historyFileAvailable, setHistoryFileAvailable] = useState<boolean | null>(null);
   /**
    * Encoders the bundled engine reported, or `null` while the list is unknown.
    * The grid uses it to grey out formats this build cannot write; a failed read
@@ -169,6 +236,9 @@ export function ConversionScreen(): React.JSX.Element {
   const cancelTarget = useRef<string | null>(null);
   const publisher = useRef<NotificationPublisher | null>(null);
   const handledNotification = useRef<string | null>(null);
+  const refreshHistory = useCallback(async () => {
+    setHistory(await historyRepository.list());
+  }, []);
 
   const apply = useCallback((action: QueueAction): QueueState => {
     const next = queueReducer(mirror.current, action);
@@ -192,14 +262,40 @@ export function ConversionScreen(): React.JSX.Element {
     singleJob !== null && state.source !== null && state.source.path === singleJob.source.path
       ? singleJob
       : null;
-  const subtitleAvailability = resolveSubtitleAvailability(preset, buildEncoders);
+  const subtitleAvailability = resolveSubtitleAvailability(preset, buildEncoders, subtitles.sidecar?.format);
   const subtitleTracks = state.summary?.subtitleTracks ?? [];
   const subtitleBusy = isSubtitleBusy(subtitles);
   /** A sidecar cannot be muxed into a container with no subtitle stream. */
   const sidecarBlocksFormat = subtitles.sidecar !== null && !subtitleAvailability.available;
   const focusedJob = focusId === null ? null : jobById(queue, focusId);
-  const finishedOutput =
+  const queueOutput =
     focusedJob !== null && focusedJob.status === 'complete' ? focusedJob.output : null;
+  const focusedHistory = detailsId === null ? null : history.find((record) => record.id === detailsId) ?? null;
+  const historyOutput = focusedHistory === null ? null : outputFileForHistory(focusedHistory);
+  const finishedOutput = historyOutput ?? queueOutput;
+
+  useEffect(() => {
+    if (!showResults || !recoveryReady) return;
+    void refreshHistory().catch(() => {
+      setRecoveryNotice('Saved conversion history could not be refreshed. Restart Transmute and try again.');
+    });
+  }, [showResults, recoveryReady, refreshHistory]);
+
+  useEffect(() => {
+    if (focusedHistory?.status !== 'completed' || focusedHistory.outputRelativePath === null) return;
+    let active = true;
+    setHistoryFileAvailable(null);
+    void durableOutputStore.exists(focusedHistory.outputRelativePath).then((exists) => {
+      if (!active) return;
+      setHistoryFileAvailable(exists);
+      if (!exists) {
+        void historyRepository.markMissing(focusedHistory.id).then(refreshHistory).catch(() => undefined);
+      }
+    }).catch(() => {
+      if (active) setHistoryFileAvailable(false);
+    });
+    return () => { active = false; };
+  }, [focusedHistory?.id, focusedHistory?.outputRelativePath, focusedHistory?.status, refreshHistory]);
 
   // One query per app run: the engine caches its own `-encoders` report.
   useEffect(() => {
@@ -223,18 +319,28 @@ export function ConversionScreen(): React.JSX.Element {
 
   useEffect(() => {
     let active = true;
-    void recoverInterruptedJob(interruptedRecoveryPorts).then((interrupted) => {
-      if (active && interrupted) {
-        setRecoveryNotice('A previous conversion stopped unexpectedly. Its partial files were removed; add the source again to retry.');
-        AccessibilityInfo.announceForAccessibility('A previous conversion was interrupted. Partial files were removed.');
+    void (async () => {
+      try {
+        const cacheRecovery = await recoverInterruptedJob(interruptedRecoveryPorts);
+        const recoveredHistory = await recoverResultHistory(resultHistoryPorts);
+        if (active) {
+          setHistory(recoveredHistory);
+          if (cacheRecovery.interrupted || recoveredHistory.some((record) => record.status === 'interrupted')) {
+            const cleanupMessage = cacheRecovery.cleanedPartialFiles
+              ? 'The recorded partial output was removed.'
+              : 'Older cache files were preserved because their job location was not recorded.';
+            setRecoveryNotice(`A previous conversion stopped unexpectedly. ${cleanupMessage} Add the source again to retry.`);
+            AccessibilityInfo.announceForAccessibility(`A previous conversion was interrupted. ${cleanupMessage}`);
+          }
+          setRecoveryReady(true);
+        }
+      } catch {
+        if (active) {
+          setRecoveryNotice('Transmute could not reconcile saved results. Check available storage and restart the app before converting.');
+          setRecoveryReady(false);
+        }
       }
-      if (active) setRecoveryReady(true);
-    }).catch(() => {
-      if (active) {
-        setRecoveryNotice('Transmute could not clean files left by an interrupted conversion. Check available storage, then restart the app before converting.');
-        setRecoveryReady(false);
-      }
-    });
+    })();
     return () => { active = false; };
   }, []);
 
@@ -370,9 +476,9 @@ export function ConversionScreen(): React.JSX.Element {
   );
 
   /** Copies one finished output to one destination; never touches the job state. */
-  const attemptSave = useCallback(async (target: SaveTarget, output: OutputFile) => {
+  const attemptSave = useCallback(async (target: SaveTarget, output: OutputFile, kind: 'media' | 'subtitle' = 'media') => {
     await saveOutput({
-      request: { kind: 'media', target, path: output.path, name: output.name },
+      request: { kind, target, path: output.path, name: output.name },
       ports: savePorts,
       dispatch: saveDispatch,
     });
@@ -400,9 +506,9 @@ export function ConversionScreen(): React.JSX.Element {
       if (finishedOutput === null) {
         return;
       }
-      void attemptSave(target, finishedOutput);
+      void attemptSave(target, finishedOutput, focusedHistory?.operation === 'subtitle-extraction' ? 'subtitle' : 'media');
     },
-    [attemptSave, finishedOutput],
+    [attemptSave, finishedOutput, focusedHistory?.operation],
   );
 
   const handleShare = useCallback(async (output: OutputFile) => {
@@ -532,14 +638,57 @@ export function ConversionScreen(): React.JSX.Element {
       // A new extraction writes a new file, so the previous copy's destination
       // must not be shown against it.
       subtitleSaveDispatch({ type: 'save/reset' });
-      await extractSubtitles({
+      const extraction = await extractSubtitles({
         sourcePath: source.path,
         sourceName: source.name,
         streamIndex,
         format: subtitles.extractionFormat,
         ports: enginePorts,
-        dispatch: subtitleDispatch,
+        dispatch: (action) => {
+          // Keep the extraction in its running state until its durable copy and
+          // history row have both been committed.
+          if (action.type !== 'extract/succeeded') subtitleDispatch(action);
+        },
       });
+      if (extraction.status === 'done') {
+        const historyId = await beginHistoryRecord(resultHistoryPorts, {
+          operation: 'subtitle-extraction',
+          sourceName: source.name,
+          sourceMimeType: source.mimeType,
+          sourceSizeBytes: source.sizeBytes,
+          presetId: null,
+        });
+        try {
+          const stored = await completeHistoryRecord(
+            resultHistoryPorts,
+            historyId,
+            extraction.output.path,
+            extraction.output.name,
+            null,
+          );
+          const durableOutput = stored.outputRelativePath === null
+            ? extraction.output
+            : { ...extraction.output, path: durableOutputStore.uri(stored.outputRelativePath) };
+          subtitleDispatch({ type: 'extract/succeeded', output: durableOutput });
+          await removeJobOutput(extraction.output.path).catch(() => undefined);
+          await refreshHistory().catch(() => undefined);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'The subtitle file could not be stored.';
+          await historyRepository.finish(historyId, 'failed', message, Date.now()).catch(() => undefined);
+          await removeJobOutput(extraction.output.path).catch(() => undefined);
+          subtitleDispatch({
+            type: 'extract/failed',
+            failure: {
+              code: 'save-failed',
+              title: 'Could not keep the subtitle file',
+              message: 'The subtitle was extracted, but Transmute could not store a durable copy.',
+              recovery: 'Free up storage, then extract the subtitle again.',
+              detail: message,
+            },
+          });
+          await refreshHistory().catch(() => undefined);
+        }
+      }
     } finally {
       working.current = false;
     }
@@ -597,7 +746,17 @@ export function ConversionScreen(): React.JSX.Element {
             `Converting ${positionOf(next, job.id)} of ${next.jobs.length}: ${job.source.name}`,
           );
         },
-        convert: (job: QueueJob) => {
+        convert: async (job: QueueJob): Promise<ConversionResult> => {
+          const selectedPreset = getPreset(mirror.current.presetId);
+          const historyId = await beginHistoryRecord(resultHistoryPorts, {
+            operation: 'conversion',
+            sourceName: job.source.name,
+            sourceMimeType: job.source.mimeType,
+            sourceSizeBytes: job.source.sizeBytes,
+            presetId: selectedPreset.id,
+          });
+          await refreshHistory().catch(() => undefined);
+
           // Each row starts with its own signal, and the ref is pointed at it so
           // the notification's Cancel and the row buttons still reach the row
           // that is running. One signal shared by the batch would mean
@@ -618,9 +777,9 @@ export function ConversionScreen(): React.JSX.Element {
               ? { summary: state.summary, encoderName: state.encoderName, presetId: state.presetId }
               : null;
 
-          return runConversion({
+          const conversion = await runConversion({
             source: job.source,
-            preset: getPreset(mirror.current.presetId),
+            preset: selectedPreset,
             ports: enginePorts,
             dispatch: (action: JobAction) => {
               // Only the single-file preview tracks the job machine; in a batch
@@ -643,6 +802,55 @@ export function ConversionScreen(): React.JSX.Element {
             ...(prepared !== null ? { prepared } : {}),
             ...(sidecar !== null ? { sidecar } : {}),
           });
+          if (conversion.status === 'done' && conversion.outputPath !== null) {
+            try {
+              const stored = await completeHistoryRecord(
+                resultHistoryPorts,
+                historyId,
+                conversion.outputPath,
+                baseNameOf(conversion.outputPath),
+                conversion.summary?.durationMs ?? null,
+                signal,
+              );
+              await removeJobOutput(conversion.outputPath).catch(() => undefined);
+              await refreshHistory().catch(() => undefined);
+              const outputPath = stored.outputRelativePath === null
+                ? conversion.outputPath
+                : durableOutputStore.uri(stored.outputRelativePath);
+              return { ...conversion, outputPath };
+            } catch (error) {
+              const message = error instanceof Error ? error.message : 'The output could not be saved.';
+              const cancelled = signal.cancelled;
+              await historyRepository.finish(historyId, cancelled ? 'cancelled' : 'failed', message, Date.now()).catch(() => undefined);
+              await removeJobOutput(conversion.outputPath).catch(() => undefined);
+              await refreshHistory().catch(() => undefined);
+              const failure: Failure = {
+                code: cancelled ? 'conversion-cancelled' : 'save-failed',
+                title: cancelled ? 'Cancelled' : 'Could not keep the converted file',
+                message: cancelled
+                  ? 'Saving the converted file was cancelled, and the partial copy was removed.'
+                  : 'The conversion finished, but Transmute could not store a durable copy.',
+                recovery: cancelled
+                  ? 'Convert the file again when you are ready.'
+                  : 'Free up storage or restart Transmute, then try the conversion again.',
+                detail: message,
+              };
+              if (batchSize === 1) {
+                if (cancelled) dispatch({ type: 'convert/cancelled' });
+                else dispatch({ type: 'convert/failed', failure });
+              }
+              return { ...conversion, status: cancelled ? 'cancelled' : 'failed', outputPath: null, failure };
+            }
+          }
+
+          await historyRepository.finish(
+            historyId,
+            conversion.status === 'done' ? 'failed' : conversion.status,
+            conversion.failure?.message ?? null,
+            Date.now(),
+          );
+          await refreshHistory().catch(() => undefined);
+          return conversion;
         },
         onFinished: (job, result: ConversionResult) => {
           if (result.status === 'done' && result.outputPath !== null) {
@@ -753,7 +961,12 @@ export function ConversionScreen(): React.JSX.Element {
     setConfirmation('all');
   }, []);
 
-  const handleConfirmed = useCallback(() => {
+  const requestHistoryAction = useCallback((action: 'remove-result' | 'delete-output' | 'clear-history', id: string | null = null) => {
+    setHistoryTarget(id);
+    setConfirmation(action);
+  }, []);
+
+  const handleConfirmed = useCallback(async () => {
     const kind = confirmation;
     setConfirmation(null);
 
@@ -775,8 +988,31 @@ export function ConversionScreen(): React.JSX.Element {
       cancelSignal.current.cancelled = true;
       apply({ type: 'queue/cancelAll' });
       cancelActiveConversion();
+      return;
     }
-  }, [apply, confirmation]);
+
+    if (kind !== 'remove-result' && kind !== 'delete-output' && kind !== 'clear-history') return;
+    setHistoryBusy(true);
+    try {
+      if (kind === 'remove-result' && historyTarget !== null) {
+        await removeHistoryRecord(resultHistoryPorts, historyTarget);
+      } else if (kind === 'delete-output' && historyTarget !== null) {
+        await deleteHistoryOutput(resultHistoryPorts, historyTarget);
+      } else if (kind === 'clear-history') {
+        const failedIds = await clearHistoryAndOutputs(resultHistoryPorts);
+        if (failedIds.length > 0) {
+          setRecoveryNotice(`${failedIds.length} history item(s) could not be removed. Their records were kept so you can retry safely.`);
+        }
+      }
+      await refreshHistory();
+      setHistoryFileAvailable(null);
+    } catch (error) {
+      setRecoveryNotice(error instanceof Error ? error.message : 'The selected result could not be changed.');
+    } finally {
+      setHistoryBusy(false);
+      setHistoryTarget(null);
+    }
+  }, [apply, confirmation, historyTarget, refreshHistory]);
 
   const handleRetryJob = useCallback(
     (job: QueueJob) => {
@@ -1121,56 +1357,81 @@ export function ConversionScreen(): React.JSX.Element {
             />
           ) : null}
 
-          {showResults && detailsId !== null && finishedOutput !== null ? (
-            <View style={styles.section}>
-              <Text style={styles.pathLabel} allowFontScaling>
-                {focusedJob?.source.name ?? 'Converted file'}
-              </Text>
-              <Text style={styles.pathLabel} allowFontScaling>
-                In the app cache
-              </Text>
-              <Text style={styles.path} allowFontScaling selectable>
-                {finishedOutput.path}
-              </Text>
-              <SavePanel state={saveState} onSave={handleSave} />
-              <SecondaryButton
-                label="Share"
-                onPress={() => { if (finishedOutput) void handleShare(finishedOutput); }}
-              />
-              {shareNotice !== null ? <Text style={styles.caption}>{shareNotice}</Text> : null}
-            </View>
-          ) : null}
-
           {showResults ? (
             <View style={styles.section}>
-              <Text style={styles.sectionLabel} accessibilityRole="header">{detailsId === null ? 'Converted files' : 'Result details'}</Text>
-              {detailsId !== null ? (
-                <>
-                  {finishedOutput === null ? <Text style={styles.caption}>This result is no longer in this session.</Text> : null}
-                  <SecondaryButton label="Back to results" onPress={() => router.replace('/results' as never)} />
-                </>
+              <View style={styles.sectionHeading}>
+                <Text style={styles.sectionLabel} accessibilityRole="header">{detailsId === null ? 'Conversion history' : 'Result details'}</Text>
+                {detailsId === null ? (
+                  <SecondaryButton
+                    label="Clear history and files"
+                    disabled={historyBusy || history.some((record) => record.status === 'converting')}
+                    onPress={() => requestHistoryAction('clear-history')}
+                    destructive
+                  />
+                ) : null}
+              </View>
+              {detailsId !== null ? <SecondaryButton label="Back to results" onPress={() => router.replace('/results' as never)} /> : null}
+              {detailsId === null && history.length === 0 ? (
+                <Text style={styles.caption}>Completed, interrupted, and failed conversions will stay here after Transmute closes.</Text>
               ) : null}
-              {detailsId === null && queue.jobs.filter((job) => job.status === 'complete').length === 0 ? (
-                <Text style={styles.caption}>Successful conversions from this app session appear here. History is kept in memory and clears when Transmute restarts.</Text>
+              {detailsId !== null && focusedHistory === null ? (
+                <Text style={styles.caption}>This history entry is no longer available.</Text>
               ) : null}
-              {detailsId === null ? queue.jobs.filter((job) => job.status === 'complete' && job.output !== null).map((job) => (
-                <View key={job.id} style={styles.resultRow}>
+              {detailsId !== null && focusedHistory !== null ? (
+                <View style={styles.resultRow}>
+                  <Text style={styles.resultTitle}>{focusedHistory.outputName ?? focusedHistory.sourceName}</Text>
+                  <Text style={styles.caption}>Status: {historyStatusLabel(focusedHistory.status)}</Text>
+                  <Text style={styles.caption}>Source: {focusedHistory.sourceName}</Text>
+                  <Text style={styles.caption}>Format: {focusedHistory.operation === 'subtitle-extraction' ? 'Subtitle extraction' : getPreset(focusedHistory.presetId!).label}</Text>
+                  {focusedHistory.outputSizeBytes !== null ? <Text style={styles.caption}>Size: {formatBytes(focusedHistory.outputSizeBytes)}</Text> : null}
+                  {focusedHistory.status === 'completed' && finishedOutput !== null && historyFileAvailable !== false ? (
+                    <>
+                      {focusedHistory.outputMimeType?.startsWith('audio/') || focusedHistory.outputMimeType?.startsWith('video/') ? (
+                        <ResultPlayer uri={finishedOutput.path} label={finishedOutput.name} mimeType={focusedHistory.outputMimeType} />
+                      ) : (
+                        <SubtitleResultPreview uri={finishedOutput.path} />
+                      )}
+                      <Text style={styles.caption}>Saved inside Transmute: {finishedOutput.path}</Text>
+                      <SavePanel
+                        state={saveState}
+                        kind={focusedHistory.operation === 'subtitle-extraction' ? 'subtitle' : 'media'}
+                        onSave={handleSave}
+                      />
+                      <SecondaryButton label="Share" disabled={historyBusy} onPress={() => { void handleShare(finishedOutput); }} />
+                      <SecondaryButton label="Delete output file" disabled={historyBusy} onPress={() => requestHistoryAction('delete-output', focusedHistory.id)} destructive />
+                    </>
+                  ) : null}
+                  {focusedHistory.status === 'completed' && historyFileAvailable === null ? <Text style={styles.caption}>Checking saved output…</Text> : null}
+                  {focusedHistory.status === 'missing' || historyFileAvailable === false ? (
+                    <Text style={styles.caption}>The output file is missing or unreadable. This history entry is kept so you can remove it safely.</Text>
+                  ) : null}
+                  {focusedHistory.failureMessage !== null ? <Text style={styles.caption}>{focusedHistory.failureMessage}</Text> : null}
+                  <SecondaryButton label="Remove history entry and app file" disabled={historyBusy || focusedHistory.status === 'converting'} onPress={() => requestHistoryAction('remove-result', focusedHistory.id)} destructive />
+                  {shareNotice !== null ? <Text style={styles.caption}>{shareNotice}</Text> : null}
+                </View>
+              ) : null}
+              {detailsId === null ? history.map((record) => (
+                <View key={record.id} style={styles.resultRow}>
                   <Pressable
                     style={styles.resultName}
-                    onPress={() => { setFocusId(job.id); router.push(`/results/${job.id}` as never); }}
+                    onPress={() => router.push(`/results/${record.id}` as never)}
                     accessibilityRole="button"
-                    accessibilityLabel={`Open result details for ${job.output?.name ?? job.source.name}`}
+                    accessibilityLabel={`Open ${historyStatusLabel(record.status)} result ${record.outputName ?? record.sourceName}`}
                   >
-                    <Text style={styles.resultKind} accessibilityLabel={job.source.mimeType?.startsWith('audio/') ? 'Audio result' : 'Video result'}>
-                      {job.source.mimeType?.startsWith('audio/') ? 'AUDIO' : 'VIDEO'}
-                    </Text>
-                    <Text style={styles.resultTitle}>{job.output?.name}</Text>
-                    <Text style={styles.caption}>Output: {job.output?.name.split('.').pop()?.toUpperCase() ?? 'Unknown format'}</Text>
-                    <Text style={styles.caption}>Source: {job.source.name}{job.source.sizeBytes === null ? '' : ` · ${Math.round(job.source.sizeBytes / 1024)} KB`}</Text>
-                    <Text style={styles.caption}>App cache: {job.output?.path}</Text>
+                    <Text style={styles.resultKind}>{record.operation === 'subtitle-extraction' ? 'SUBTITLE' : record.outputMimeType?.startsWith('audio/') ? 'AUDIO' : record.outputMimeType?.startsWith('video/') ? 'VIDEO' : 'CONVERSION'}</Text>
+                    <Text style={styles.resultTitle}>{record.outputName ?? record.sourceName}</Text>
+                    <Text style={styles.caption}>{record.operation === 'subtitle-extraction' ? 'Subtitle extraction' : getPreset(record.presetId!).label} · {historyStatusLabel(record.status)}{record.outputSizeBytes === null ? '' : ` · ${formatBytes(record.outputSizeBytes)}`}</Text>
+                    <Text style={styles.caption}>Source: {record.sourceName}{record.sourceSizeBytes === null ? '' : ` · ${formatBytes(record.sourceSizeBytes)}`}</Text>
+                    {record.status === 'completed' && record.outputRelativePath !== null ? <Text style={styles.caption}>Stored in Transmute</Text> : null}
+                    {record.failureMessage !== null ? <Text style={styles.caption}>{record.failureMessage}</Text> : null}
                   </Pressable>
-                  <SecondaryButton label="Save to Phone" onPress={() => { setFocusId(job.id); void attemptSave('folder', job.output!); }} />
-                  <SecondaryButton label="Share" onPress={() => { if (job.output) void handleShare(job.output); }} />
+                  {record.status === 'completed' ? <SecondaryButton label={record.operation === 'subtitle-extraction' ? 'Open' : 'Play'} disabled={historyBusy} onPress={() => router.push(`/results/${record.id}` as never)} /> : null}
+                  {record.status === 'completed' ? <SecondaryButton label="Share" disabled={historyBusy} onPress={() => {
+                    const output = outputFileForHistory(record);
+                    if (output) void handleShare(output);
+                  }} /> : null}
+                  {record.status === 'completed' ? <SecondaryButton label="Delete output file" disabled={historyBusy} onPress={() => requestHistoryAction('delete-output', record.id)} destructive /> : null}
+                  <SecondaryButton label="Remove result" disabled={historyBusy || record.status === 'converting'} onPress={() => requestHistoryAction('remove-result', record.id)} destructive />
                 </View>
               )) : null}
             </View>
@@ -1253,14 +1514,20 @@ export function ConversionScreen(): React.JSX.Element {
 
       <ConfirmDialog
         visible={confirmation !== null}
-        title={confirmation === 'all' ? 'Cancel this batch?' : 'Cancel this conversion?'}
+        title={confirmationTitle(confirmation)}
         message={
           confirmation === 'all'
             ? 'The running conversion stops and its partial file is deleted. Files that have not started are cancelled. Files already converted are kept.'
-            : 'The partial output is deleted. The original file is not touched.'
+            : confirmation === 'remove-result'
+              ? 'This removes the history entry and the app-owned output file. Copies you saved elsewhere are not touched.'
+              : confirmation === 'delete-output'
+                ? 'This deletes only the app-owned output file and keeps the history entry marked as missing.'
+                : confirmation === 'clear-history'
+                  ? 'This permanently removes all Transmute history entries and their app-owned output files. Files saved to other folders are not touched.'
+                  : 'The partial output is deleted. The original file is not touched.'
         }
-        confirmLabel={confirmation === 'all' ? 'Cancel everything' : 'Cancel conversion'}
-        cancelLabel="Keep converting"
+        confirmLabel={confirmationLabel(confirmation)}
+        cancelLabel={confirmation === 'job' || confirmation === 'all' ? 'Keep converting' : 'Keep result'}
         onConfirm={handleConfirmed}
         onCancel={() => setConfirmation(null)}
         destructive

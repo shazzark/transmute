@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   hasActiveMarker: vi.fn(),
   removePartialOutputs: vi.fn(),
   clearActiveMarker: vi.fn(),
+  historyList: vi.fn(async () => []),
 }));
 
 vi.mock('react-native', async () => {
@@ -60,6 +61,40 @@ vi.mock('expo-notifications', () => ({
   scheduleNotificationAsync: vi.fn(async () => 'notification'),
 }));
 vi.mock('expo-sharing', () => ({ isAvailableAsync: vi.fn(async () => true), shareAsync: vi.fn(async () => {}) }));
+vi.mock('expo-video', () => ({ useVideoPlayer: vi.fn(() => ({})), VideoView: 'VideoView' }));
+vi.mock('../../native/resultStorage', () => ({
+  historyRepository: {
+    list: mocks.historyList,
+    begin: vi.fn(async () => {}),
+    complete: vi.fn(async () => {}),
+    finish: vi.fn(async () => {}),
+    listConvertingIds: vi.fn(async () => []),
+    markInterrupted: vi.fn(async () => {}),
+    markMissing: vi.fn(async () => {}),
+    get: vi.fn(async () => null),
+    remove: vi.fn(async () => {}),
+  },
+  durableOutputStore: {
+    uri: (path: string) => `file:///documents/Transmute/outputs/${path}`,
+    exists: vi.fn(async () => true),
+    delete: vi.fn(async () => {}),
+    removeRecordFiles: vi.fn(async () => {}),
+    copyFrom: vi.fn(async () => ({ name: 'output.mp4', relativePath: 'result/output.mp4', mimeType: 'video/mp4', sizeBytes: 123, durationMs: null })),
+  },
+}));
+vi.mock('../../application/resultHistory', () => ({
+  beginHistoryRecord: vi.fn(async () => 'result-test-1-a'),
+  completeHistoryRecord: vi.fn(async () => ({
+    id: 'result-test-1-a', sourceName: 'source.mp4', sourceMimeType: 'video/mp4', sourceSizeBytes: 123,
+    presetId: 'mp4', status: 'completed', startedAt: 1, completedAt: 2, failureMessage: null,
+    outputName: 'output.mp4', outputRelativePath: 'result-test-1-a/output.mp4', outputMimeType: 'video/mp4',
+    outputSizeBytes: 123, durationMs: 3000,
+  })),
+  recoverResultHistory: vi.fn(async () => []),
+  clearHistoryAndOutputs: vi.fn(async () => []),
+  deleteHistoryOutput: vi.fn(async () => {}),
+  removeHistoryRecord: vi.fn(async () => {}),
+}));
 vi.mock('../../application/runConversion', () => ({
   prepareSource: mocks.prepareSource,
   runConversion: mocks.runConversion,
@@ -116,6 +151,7 @@ vi.mock('../components/PresetSelector', async () => {
 vi.mock('../components/ProgressPanel', () => ({ ProgressPanel: () => null }));
 vi.mock('../components/SavePanel', () => ({ SavePanel: () => null }));
 vi.mock('../components/SubtitlePanel', () => ({ SubtitlePanel: () => null }));
+vi.mock('../components/SubtitleResultPreview', () => ({ SubtitleResultPreview: () => null }));
 vi.mock('../components/VideoPreviewCard', () => ({ VideoPreviewCard: () => null }));
 
 import { ConversionScreen, IntroOverlay } from './ConversionScreen';
@@ -192,13 +228,14 @@ describe('ConversionScreen Convert action', () => {
   it('shows interrupted recovery on Home after cleaning the previous partial output', async () => {
     await act(async () => renderer.unmount());
     mocks.hasActiveMarker.mockResolvedValueOnce(true);
+    mocks.removePartialOutputs.mockResolvedValueOnce(true);
     mocks.pathname = '/';
 
     await act(async () => { renderer = TestRenderer.create(React.createElement(ConversionScreen)); });
 
     const notice = renderer.root.findAll((node) =>
       String(node.type) === 'Banner' && node.props.title === 'Interrupted conversion')[0];
-    expect(notice?.props.message).toContain('partial files were removed');
+    expect(notice?.props.message).toContain('partial output was removed');
     expect(mocks.removePartialOutputs).toHaveBeenCalledTimes(1);
     expect(mocks.clearActiveMarker).toHaveBeenCalledTimes(1);
   });

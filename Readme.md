@@ -4,17 +4,17 @@
 
 ## Status
 
-**Phase 4 implementation is in progress; device acceptance remains open.** The app has an in-memory FIFO queue, foreground service, Router paths, session-only results, and startup cleanup for interrupted conversions. Shared safe-area, route clearance, and touch fixes passed the current Home/tab checks on the Samsung A13; broader device acceptance remains open.
+**Phases 1–8 are in implementation and verification; no phase is complete without its evidence.** Transmute now has local SQLite history and durable app-owned results. Automated and connected-device checks are being updated; the current phase checklist is in `implementation-plan.md` and `tasks.md`.
 
-Automatically verified on 2026-11-07: TypeScript, 400 Vitest tests across 31 files, Expo SDK 58 public config, Android JS bundle export (1,375 modules), and a fresh armeabi-v7a debug build installed on the Samsung A13 (R58T402DKYB). On-device checks covered Home safe areas, tabs, MP3 shortcut, Android Back, picker open/cancel, one 3-second MP3 conversion, `ffprobe` output, SAF save with a matching SHA-256, share-sheet opening, and the MIT/LGPL notice screen. The generated test job and files were removed; three older app-cache outputs were preserved. Other formats, notifications, background, playback, and deep-link behavior remain open; Phase 4 and later phases are incomplete until their documented gates are met.
+Historical A13 verification on 2026-11-07 used an earlier APK: Home safe areas, tabs, MP3 shortcut, Android Back, picker open/cancel, one 3-second MP3 conversion, `ffprobe`, SAF save with matching SHA-256, share sheet, and MIT/LGPL notices were checked. Three older app-cache outputs were preserved. In the current continuation, `npm test` passes 416 tests across 33 files and `npm run typecheck` passes. The fresh native rebuild is blocked by missing generated Reanimated `Props.h`; see `implementation-plan.md`. Results, remaining formats, subtitles, notification flows, and restart behavior are not certified by the historical run.
 
-History policy: queue rows and result history live in memory for one app process. Outputs stay in the app cache while the process is active; restarting clears the visible history and startup recovery removes cache output left by a marked interrupted batch. There is no backend or durable conversion history.
+History and output files are kept on this device only. Conversion history uses a versioned SQLite database; completed media and extracted subtitles are copied to Transmute's app-owned Documents storage before they are marked complete. Startup checks interrupted records and missing output files. Results provide separate confirmed actions to delete one output, remove one result and its owned file, or clear all history and owned output files. Transmute does not upload results or require a network connection for conversion or history.
 
 ## Features implemented (device verification remains open)
 
 - Convert video: MP4, MKV, MOV, WEBM (the selector enables a preset only when the build reports its required encoder and a probed input has the needed stream)
-- Extract audio: MP3, M4A/AAC, WAV, FLAC, OGG/Vorbis, OPUS
-- Embed SRT sidecars into supported video containers; extract text tracks to SRT or VTT
+- Extract audio: MP3, M4A/AAC, WAV, FLAC, and OPUS when the bundled encoder is present. OGG/Vorbis is unavailable in the current build because the FFmpeg build recipe omits `--enable-libvorbis`; the selector reports its missing encoder.
+- Embed SRT or VTT sidecars into supported video containers; preserve ASS styling in MKV only; extract text tracks to durable SRT or VTT results
 - Batch conversion queue â€” implemented; Phase 4 device checks open
 - Large-file behavior over 1 GB is not verified in this checkout
 - Background conversion with foreground service notification â€” implemented; device survival and cancellation checks open
@@ -33,7 +33,7 @@ The bundled engine's encoder inventory controls which formats the selector enabl
 | Audio | M4A | AAC | `aac` | Not run |
 | Audio | WAV | PCM signed 16-bit | `pcm_s16le` | Not run |
 | Audio | FLAC | FLAC | `flac` | Not run |
-| Audio | OGG | Vorbis | `libvorbis` | Not run |
+| Audio | OGG | Vorbis | `libvorbis` (unavailable: the bundled FFmpeg recipe does not enable libvorbis) | Unsupported in this build; no OGG sample will be created |
 | Audio | OPUS | Opus | `libopus` | Not run |
 
 The selected input must also contain the stream needed by the requested output. Encoder presence alone does not prove a combination is playable on a device.
@@ -46,7 +46,7 @@ Select several files in one trip through the system picker; they are converted s
 - **Remove** on a waiting row removes it and deletes its picker cache copy. **Cancel** on the running row asks first, then stops the engine and deletes the partial file. **Cancel all** stops the batch; already-converted files are kept.
 - A file that fails does not stop the batch. Its reason stays attached to its row.
 - The output format applies to the whole batch and cannot be changed while a row is running â€” a batch is never half in one container.
-- A finished row appears in Results with Save to Phone and Share. Clearing finished rows removes their app-cache source and output directories. A single-file batch also attempts the existing automatic Photos copy; a batch of many does not.
+- Completed media appears in persistent Results with in-app playback, Save, and Share. Extracted subtitles appear as text results with Save and Share. Clearing queue activity does not delete persistent results; use the clearly named result/file controls in Results.
 
 ## Background conversion
 
@@ -60,8 +60,8 @@ Conversions run in the app's own process, so Android needs a foreground service 
 
 Subtitles are handled as text tracks only â€” nothing is burned into the picture.
 
-- **Embed:** one sidecar at a time. Only `.srt` is accepted in this phase; the file is validated (timing lines, cue count, span) before the engine is asked to read it, so a malformed file is refused with a reason instead of producing a broken output.
-- **Extract:** any embedded text track can be copied out to `.srt` or `.vtt`. The engine writes it into the job directory in the app cache, and the panel then offers to save it into a folder the user picks â€” Downloads or Documents, so it shows up in a file manager. A sidecar is a text document, not media, so the photo library is never offered; Android is handed `application/x-subrip` (or `text/vtt`) when the file is created, falling back to `text/plain` in a folder that refuses it.
+- **Embed:** one SRT, WebVTT, or ASS sidecar at a time. Sidecars are validated before the engine reads them. ASS is offered only with MKV because MP4, MOV, and WebM cannot preserve ASS styling. Device verification for every container/sidecar pair remains open.
+- **Extract:** supported embedded text tracks can be copied to SRT or VTT. The extracted file is kept in app-owned storage and appears in persistent Results, where its first 100 lines can be previewed; it can also be shared or saved to a folder. A subtitle is text, so it is not offered to Photos.
 
 The table records the requested codec mapping; player behavior is descriptive, not tested on this device. Subtitle track listings and playback remain unverified for every container.
 
@@ -73,7 +73,7 @@ The table records the requested codec mapping; player behavior is descriptive, n
 | WEBM | `webvtt` | the text is converted; players that open WebM usually show the track |
 | MP3, M4A, WAV, FLAC, OGG, OPUS | â€” | audio-only: no subtitle stream exists, so a chosen sidecar is refused before the job starts |
 
-Not yet: ASS or VTT sidecars as input, subtitle styling, and burn-in.
+Not yet: subtitle burn-in. ASS styling is preserved only for MKV; unsupported conversions are refused rather than silently flattened.
 
 ## Tech Stack
 
@@ -81,7 +81,7 @@ Not yet: ASS or VTT sidecars as input, subtitle styling, and burn-in.
 - **Media Engine:** [`munim-ffmpeg`](https://www.npmjs.com/package/munim-ffmpeg) `0.9.2` (FFmpeg 9.0.2, LGPLv3 build, Nitro Module)
 - **Native Project:** continuous native generation â€” `npx expo prebuild` generates `android/`, which is not committed
 - **Language:** TypeScript
-- **File Access:** `expo-document-picker` (the system document UI; the chosen file is copied into the app cache, which is what FFmpeg reads) plus `expo-file-system` for the job directory in that cache
+- **File Access and Results:** `expo-document-picker` copies inputs to app cache for FFmpeg; `expo-sqlite` stores local history and `expo-file-system` keeps completed results under app-owned Documents storage.
 - **Testing:** Vitest (unit), Detox or Maestro (E2E on Android)
 
 ## Requirements

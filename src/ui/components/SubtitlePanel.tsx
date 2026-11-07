@@ -90,17 +90,8 @@ export function SubtitlePanel({
         Add a subtitle file
       </Text>
 
-      {availability.available ? (
-        <>
-          {sidecar === null ? (
-            <SecondaryButton
-              label={state.sidecarStatus === 'choosing' ? 'Choosing…' : 'Choose .srt file'}
-              onPress={onChoose}
-              disabled={idle}
-              accessibilityLabel="Choose a SubRip subtitle file to embed in the converted video"
-            />
-          ) : (
-            <View style={styles.chosen}>
+      {sidecar !== null ? (
+        <View style={styles.chosen}>
               <Text style={styles.name} allowFontScaling numberOfLines={2}>
                 {sidecar.name}
               </Text>
@@ -122,14 +113,14 @@ export function SubtitlePanel({
                   accessibilityLabel={`Remove ${sidecar.name} from the conversion`}
                 />
               </View>
-            </View>
-          )}
-          {availability.target ? (
-            <Text style={styles.note} allowFontScaling>
-              {availability.target.note}
-            </Text>
-          ) : null}
-        </>
+        </View>
+      ) : availability.available ? (
+        <SecondaryButton
+              label={state.sidecarStatus === 'choosing' ? 'Choosing…' : 'Choose .srt, .vtt, or .ass file'}
+              onPress={onChoose}
+              disabled={idle}
+              accessibilityLabel="Choose a SubRip, WebVTT, or ASS subtitle file to embed in the converted video"
+        />
       ) : (
         <Text style={styles.note} allowFontScaling>
           {availability.target === null
@@ -137,6 +128,12 @@ export function SubtitlePanel({
             : availability.reason}
         </Text>
       )}
+      {availability.target && sidecar !== null ? (
+        <Text style={styles.note} allowFontScaling>{availability.target.note}</Text>
+      ) : null}
+      {sidecar !== null && !availability.available ? (
+        <Text style={styles.note} allowFontScaling>{availability.reason}</Text>
+      ) : null}
 
       {state.sidecarStatus === 'failed' && state.sidecarFailure ? (
         <Banner

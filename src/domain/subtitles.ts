@@ -7,10 +7,8 @@
  * imports — so the parser, the matrix, and the naming rule are tested in Node
  * (TR-21).
  *
- * Only SubRip (`.srt`) sidecars are accepted for embedding in this phase. The
- * README's ASS claim is not silently approximated: `detectSidecarFormat` returns
- * `null` for anything else, so the screen refuses that file by name instead of
- * handing FFmpeg something it would mangle (TR-19).
+ * SubRip and WebVTT sidecars are converted to the target container's text codec;
+ * ASS is preserved only in Matroska so styling is not silently discarded.
  */
 
 import { buildOutputName } from './naming';
@@ -21,11 +19,17 @@ import type { SubtitleTrack } from './probe';
 export type SubtitleFormat = 'srt' | 'vtt';
 
 /** Sidecar formats accepted as an input, which is a narrower set. */
-export type SidecarFormat = 'srt';
+export type SidecarFormat = 'srt' | 'vtt' | 'ass';
 
 export const SUBTITLE_EXTENSIONS: Record<SubtitleFormat, string> = {
   srt: '.srt',
   vtt: '.vtt',
+};
+
+const SIDECAR_EXTENSIONS: Record<SidecarFormat, string> = {
+  srt: '.srt',
+  vtt: '.vtt',
+  ass: '.ass',
 };
 
 /** `-c:s` value for a text subtitle format. */
@@ -40,7 +44,7 @@ export function subtitleCodecFor(format: SubtitleFormat): string {
  * unhelpful name is still read as SubRip instead of being guessed at.
  */
 export function subtitleDemuxerFor(format: SidecarFormat): string {
-  return SUBTITLE_EXTENSIONS[format].slice(1);
+  return format === 'vtt' ? 'webvtt' : format;
 }
 
 /**
@@ -52,11 +56,13 @@ export function subtitleDemuxerFor(format: SidecarFormat): string {
  */
 export function detectSidecarFormat(fileName: string): SidecarFormat | null {
   const name = fileName.trim().toLowerCase();
-  return name.endsWith(SUBTITLE_EXTENSIONS.srt) ? 'srt' : null;
+  return (Object.keys(SIDECAR_EXTENSIONS) as SidecarFormat[]).find((format) =>
+    name.endsWith(SIDECAR_EXTENSIONS[format]),
+  ) ?? null;
 }
 
 /** Why a sidecar was refused, in a form the caller turns into words. */
-export type SidecarProblem = 'wrong-type' | 'empty' | 'binary' | 'no-cues' | 'bad-timing';
+export type SidecarProblem = 'wrong-type' | 'empty' | 'binary' | 'no-cues' | 'bad-timing' | 'bad-header';
 
 export interface SidecarProblemDetail {
   readonly problem: SidecarProblem;
@@ -167,6 +173,50 @@ export function validateSrt(text: string): SrtValidation {
   };
 }
 
+function validateVtt(text: string): SrtValidation {
+  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
+  const header = lines.find((line) => line.trim().length > 0)?.trim() ?? '';
+  if (!/^WEBVTT(?:\s|$)/i.test(header)) return { ok: false, problem: 'bad-header', line: 1 };
+  return validateSrt(lines.slice(1).join('\n'));
+}
+
+function assTimestampMs(value: string): number | null {
+  const match = /^(\d+):(\d{2}):(\d{2})\.(\d{2})$/.exec(value.trim());
+  if (match === null) return null;
+  return (((Number(match[1]) * 60 + Number(match[2])) * 60 + Number(match[3])) * 1000) + Number(match[4]) * 10;
+}
+
+function validateAss(text: string): SrtValidation {
+  if (typeof text !== 'string' || text.trim().length === 0) return { ok: false, problem: 'empty', line: null };
+  if (text.includes('\u0000')) return { ok: false, problem: 'binary', line: null };
+  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
+  if (!lines.some((line) => /^\s*\[Events\]\s*$/i.test(line))) {
+    return { ok: false, problem: 'bad-header', line: null };
+  }
+  let cues = 0;
+  let firstMs: number | null = null;
+  let lastMs: number | null = null;
+  for (const [index, line] of lines.entries()) {
+    if (!/^\s*Dialogue:/i.test(line)) continue;
+    const match = /^\s*Dialogue:\s*[^,]*,\s*([^,]+),\s*([^,]+),/i.exec(line);
+    const start = match === null ? null : assTimestampMs(match[1] ?? '');
+    const end = match === null ? null : assTimestampMs(match[2] ?? '');
+    if (start === null || end === null || end <= start) {
+      return { ok: false, problem: 'bad-timing', line: index + 1 };
+    }
+    cues += 1;
+    firstMs ??= start;
+    lastMs = end;
+  }
+  if (cues === 0) return { ok: false, problem: 'no-cues', line: null };
+  return {
+    ok: true,
+    cueCount: cues,
+    firstCueLabel: firstMs === null ? null : cueLabel(firstMs),
+    lastCueLabel: lastMs === null ? null : cueLabel(lastMs),
+  };
+}
+
 export interface SidecarValidationInput {
   /** Name as the picker reported it; the extension is what is trusted. */
   readonly name: string;
@@ -190,7 +240,7 @@ export function validateSidecar({ name, text }: SidecarValidationInput): Sidecar
     return { ok: false, problem: 'wrong-type', line: null };
   }
 
-  const parsed = validateSrt(text);
+  const parsed = format === 'vtt' ? validateVtt(text) : format === 'ass' ? validateAss(text) : validateSrt(text);
   if (!parsed.ok) {
     return parsed;
   }
@@ -251,10 +301,17 @@ const CONTAINER_TARGETS: Record<string, SubtitleTarget> = {
 /** Containers that can carry a subtitle track; audio-only presets cannot. */
 export const SUBTITLE_CONTAINERS: readonly string[] = Object.keys(CONTAINER_TARGETS);
 
-/** The codec and caveat for a preset, or `null` when it cannot hold subtitles. */
-export function subtitleTargetFor(preset: Preset): SubtitleTarget | null {
+/** The codec and caveat for a preset/sidecar pair, or `null` if it cannot be kept faithfully. */
+export function subtitleTargetFor(preset: Preset, format?: SidecarFormat): SubtitleTarget | null {
   if (preset.kind !== 'video') {
     return null;
+  }
+  if (format === 'ass') {
+    if (preset.container !== 'MKV') return null;
+    return {
+      codec: 'ass',
+      note: 'ASS subtitles retain their styling in Matroska. This file type cannot preserve those styles in MP4, MOV, or WebM.',
+    };
   }
   return CONTAINER_TARGETS[preset.container] ?? null;
 }
@@ -276,9 +333,17 @@ export interface SubtitleAvailability {
 export function resolveSubtitleAvailability(
   preset: Preset,
   availableEncoders: readonly string[] | null,
+  format?: SidecarFormat,
 ): SubtitleAvailability {
-  const target = subtitleTargetFor(preset);
+  const target = subtitleTargetFor(preset, format);
   if (target === null) {
+    if (format === 'ass' && preset.kind === 'video') {
+      return {
+        available: false,
+        reason: 'ASS subtitles can be preserved only in MKV output.',
+        target: null,
+      };
+    }
     return {
       available: false,
       reason: `${preset.label} cannot carry a subtitle track.`,

@@ -32,11 +32,10 @@ One user, one phone, no network: select a video from device storage, convert it 
 
 - iOS, web, and desktop clients; any backend, account, cloud sync, or telemetry.
 - Video editing: trimming, cropping, filters, watermarks, timelines, frame previews, thumbnails.
-- In-app playback of results (results open in an external player).
 - DRM-protected content, screen recording, live camera capture.
 - Share-sheet intake from other apps (a strong later candidate, not MVP).
 - Hardware encoder tuning (`MediaCodec`), two-pass size targeting, benchmark or batch-automation modes.
-- Persistent history or a database; job resumption after process death (an interrupted job is reported as interrupted, not resumed).
+- Job resumption after process death (an interrupted job is reported as interrupted, not resumed).
 - Localization, light theme, tablet-specific layouts, RTL polish.
 - Guaranteed decoding of all ten advertised input containers. Phase 5 ships the formats the build actually supports and documents the rest as unsupported instead of shipping them broken.
 
