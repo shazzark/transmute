@@ -1,6 +1,6 @@
 const { withAppBuildGradle, withProjectBuildGradle } = require('expo/config-plugins');
 
-const marker = '// Keep native codegen outputs under short project paths.';
+const marker = '// Keep native codegen outputs short and inside ignored android/ so JS bundling cannot scan them.';
 const legacyMarker = '// Keep safe-area codegen sources under the short project root.';
 const nativePoolMarker = '// Limit each CMake/Ninja project to one compile and link job.';
 const appNativePoolMarker = '// Keep the app CMake/Ninja build within the one-job memory limit.';
@@ -21,10 +21,10 @@ android {
 const buildDirectoryRule = `
 ${marker}
 def shortNativeBuildDirectories = [
-  ':react-native-safe-area-context': '../s',
-  ':react-native-gesture-handler': '../g',
-  ':react-native-reanimated': '../r'
+  ':react-native-safe-area-context': 's',
+  ':react-native-gesture-handler': 'g'
 ]
+// Reanimated's CMakeLists.txt hard-codes its generated code path to android/build.
 subprojects { project ->
   def shortBuildDirectory = shortNativeBuildDirectories[project.path]
   if (shortBuildDirectory != null) {

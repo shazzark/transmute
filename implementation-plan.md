@@ -4,7 +4,16 @@
 >
 > **Document rules:** `[Confirmed]`, `[Inferred]`, `[Recommended]`, `[Open question]` as defined in `project-brief.md`. The owner authorized implementation through Phase 7 on 2026-10-29. Phase status below separates code, automated evidence, and device evidence.
 
-**Status:** Phases 1â€“7 remain open where acceptance evidence is incomplete; Phase 8 is approved and in progress. Implementation, automated verification, and phone verification are tracked separately below. | **Plan owner:** `shazzark` | **Scope/version:** `v0.1-mvp`
+**Status:** Phases 1–7 remain open where acceptance evidence is incomplete; Phase 8 is approved and in progress. Implementation, automated verification, and phone verification are tracked separately below. | **Plan owner:** `shazzark` | **Scope/version:** `v0.1-mvp`
+
+### Current continuation evidence (2026-11-07)
+
+- The approved clean Android prebuild completed after a verified backup of the ignored `android/` tree. The Reanimated codegen path issue was fixed in `plugins/withShortSafeAreaBuildDirectory.js`; safe-area and gesture-handler short paths remain, while Reanimated keeps its required `node_modules` build path.
+- Automated evidence: `npm test` passes 417 tests across 33 files; `npm run typecheck` passes. The ARMv7 debug APK builds (105,355,223 bytes) and installs with `adb install -r` without uninstalling app data.
+- The update preserved the three older app-cache outputs recorded in the previous device run. Synthetic source inspection on the host confirms H.264 video, AAC audio, and an embedded `mov_text` subtitle; the isolated SRT, VTT, and ASS sidecars are also present on the phone.
+- Release APK built successfully (59,979,181 bytes) and installed with adb install -r. APK inspection confirms the bundled Android JavaScript asset, the ARMv7 FFmpeg library, no INTERNET or broad storage permission, and a signing certificate matching the installed APK. This is a debug-key-signed test build; no release conversion or UI behavior has been checked.
+- The A13 remains at its secure lock screen. No new Results samples were generated. The three older outputs were present before the in-place install; post-install byte inspection is unavailable because this release package is not debuggable. Conversion, Results playback/preview, subtitles, restart/missing-file behavior, notifications, accessibility, and safe deletion remain unverified. No phase is complete until its required device evidence passes.
+- Encoder availability now reports exact reasons. OGG/Vorbis remains unavailable because the bundled FFmpeg configuration does not enable `libvorbis`; conversion and playback are not applicable and must not be claimed.
 
 ## 2026-10-30 continuation evidence
 

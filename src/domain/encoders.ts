@@ -142,7 +142,7 @@ export function resolveAvailability(
       ? chooseVideoEncoder(preset, availableEncoders)
       : chooseAudioEncoder(preset, availableEncoders);
 
-  return choice.ok ? { available: true, reason: '' } : { available: false, reason: 'Not in this build' };
+  return choice.ok ? { available: true, reason: '' } : { available: false, reason: choice.reason };
 }
 
 /**

@@ -110,14 +110,23 @@ describe('resolveAvailability', () => {
     const availability = resolveAvailability(getPreset('webm'), ['h264_mediacodec', 'aac']);
 
     expect(availability.available).toBe(false);
-    expect(availability.reason).toMatch(/not in this build/i);
+    expect(availability.reason).toBe(
+      'This build has no WEBM video encoder. Needed one of: libvpx-vp9, libvpx.',
+    );
   });
 
   it('disables an audio format whose encoder is missing', () => {
     const availability = resolveAvailability(getPreset('flac'), ['h264_mediacodec', 'aac']);
 
     expect(availability.available).toBe(false);
-    expect(availability.reason).toMatch(/not in this build/i);
+    expect(availability.reason).toBe('This build has no FLAC audio encoder. Needed: flac.');
+  });
+
+  it('states the missing Vorbis encoder for the unsupported OGG preset', () => {
+    expect(resolveAvailability(getPreset('ogg'), ['libmp3lame', 'aac'])).toEqual({
+      available: false,
+      reason: 'This build has no OGG audio encoder. Needed: libvorbis.',
+    });
   });
 
   it('judges each format on its own codec', () => {

@@ -49,7 +49,15 @@
 - [ ] Complete format-by-format and subtitle-by-container device evidence.
 - [ ] Complete TalkBack/200% text, E2E, release artifact, and release-manifest gates.
 
-Current evidence (2026-11-07): npm run typecheck passes; npm test passes (31 files, 400 tests); npx expo config --type public --json passes; npx expo export --platform android --output-dir .expo-export-check bundles 1,375 modules (generated output removed); npx expo run:android built and installed/launched the fresh armeabi-v7a debug APK on R58T402DKYB. The A13 check covered Home safe areas, tabs, MP3 shortcut, Back, picker open/cancel, notices, one 3-second MP3 conversion, `ffprobe` output (73,493 bytes), SAF save with matching SHA-256, share-sheet open/back, and clearing the generated test job. The app’s three older cache outputs were preserved. Notification/background, 20-row, remaining format/subtitle, playback, recovery, accessibility, and release checks remain open. `git -c core.whitespace=cr-at-eol diff --check` is the repository check for its CRLF files.
+Prior A13 verification on an earlier debug APK (2026-11-07): npm run typecheck passed; npm test passed then (31 files, 400 tests); npx expo config --type public --json passes; npx expo export --platform android --output-dir .expo-export-check bundles 1,375 modules (generated output removed); npx expo run:android built and installed/launched the fresh armeabi-v7a debug APK on R58T402DKYB. The A13 check covered Home safe areas, tabs, MP3 shortcut, Back, picker open/cancel, notices, one 3-second MP3 conversion, `ffprobe` output (73,493 bytes), SAF save with matching SHA-256, share-sheet open/back, and clearing the generated test job. The app’s three older cache outputs were preserved. Notification/background, 20-row, remaining format/subtitle, playback, recovery, accessibility, and release checks remain open. `git -c core.whitespace=cr-at-eol diff --check` is the repository check for its CRLF files.
+
+## Current continuation evidence (2026-11-07)
+
+- `npm test`: 417 tests across 33 files passed. `npm run typecheck` passed.
+- Approved `npx expo prebuild --clean --platform android` completed after backing up the ignored native directory and fixing Reanimated's generated-header path. ARMv7 debug APK built (105,355,223 bytes) and was installed with `adb install -r`; the three older cache outputs were preserved.
+- Host `ffprobe` confirmed the isolated QA source has H.264 video, AAC audio, and embedded `mov_text`; SRT, VTT, and ASS fixtures are staged on the A13.
+- Release build passed: the test-signed ARMv7 APK is 59,979,181 bytes, includes the offline JS bundle and FFmpeg library, and has no INTERNET or broad storage permission. Its signature matches the installed app; adb install -r updated it without uninstalling or wiping data. Three older cache outputs were present immediately before installation.
+- The A13 remains at the secure lock screen. The installed release is not debuggable, so post-install cache byte inspection and all Results interactions are unavailable until unlock. No named test results were generated. All phase statuses remain open; source, automated tests, build, and manifest checks do not substitute for required device evidence.
 
 ## Device format checklist
 
@@ -65,7 +73,7 @@ Keep conversion proof separate from playback/preview proof. Mark a box only afte
 | M4A (AAC) | [ ] | [ ] |
 | WAV (PCM) | [ ] | [ ] |
 | FLAC | [ ] | [ ] |
-| OGG (Vorbis) | [ ] Encoder availability to confirm; current FFmpeg build recipe does not enable libvorbis | [ ] |
+| OGG (Vorbis) | N/A — unavailable: this build has no OGG audio encoder; it needs `libvorbis` | N/A |
 | OPUS | [ ] | [ ] |
 | Embed SRT in MP4, MKV, MOV, WEBM | [ ] | [ ] Track/content inspection per container |
 | Embed VTT in MP4, MKV, MOV, WEBM | [ ] | [ ] Track/content inspection per container |
