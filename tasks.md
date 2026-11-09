@@ -231,3 +231,9 @@ This entry supersedes the unauthorized-device note above. `adb devices -l` repor
 
 Still open on device: remaining subtitle/container combinations; caption/track behavior for MOV and WebM; `ffprobe` on the remaining private audio/video Results; background conversion and notification action/routing; active conversion and copy cancellation; force-stop recovery during an active job; large-file and safe low-storage cases; 20-item interaction; navigation during conversion; missing-file behavior and individual safe deletion with an exported copy; TalkBack and full-screen large-text/reduced-motion review; device E2E; and the native-library licence audit. Offline Results persistence after a force-stop was recorded above; it does not prove the other storage checks. No phase is complete because its full acceptance criteria are not met. `.local-recovery/` is local evidence and remains untracked; subtitle QA Results on the phone were left intact for review.
 
+### Reliability fixture follow-up — 2026-11-09
+
+- Created a 60-second, 2.9 MB synthetic MP4 by looping the existing 176×144 QA source, placed it under `/sdcard/Download/Transmute-QA-Reliability-20261109/`, and selected it in Transmute. A conversion to MKV completed to a Ready 6.3 MB result in Results. This demonstrates a one-minute input conversion, not the large-file acceptance case.
+- Sent the first queued attempt to Home immediately; on returning, the job remained Waiting. Starting it again from the foreground completed. This does not pass background conversion or notification routing, and the before-start background timing remains unresolved.
+- Kept the reliability MKV result and all subtitle Results. A copy from Result Details could not be independently verified in the external QA folder during this attempt, so no deletion was performed. The export/deletion-boundary check remains open.
+

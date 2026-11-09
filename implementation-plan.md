@@ -340,6 +340,8 @@ At 200% system text, the tab labels were visibly ellipsized. The tab renderer wa
 
 The updated ARMv7 release APK is 60,113,193 bytes, signed by the existing local debug certificate (SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`), and installs with `adb install -r`. `aapt` reports only `armeabi-v7a` and no INTERNET or broad storage/media permission. `npm test` passed (422 tests / 34 files), `npm run typecheck` passed, and `git -c core.whitespace=cr-at-eol diff --check` passed. Phases 1–8 remain incomplete pending their remaining acceptance criteria.
 
+A separate 60-second synthetic QA input converted to a Ready 6.3 MB MKV. The first queue attempt remained Waiting after Home was opened immediately, then completed when started again in the foreground; this is not background-conversion acceptance. The external-copy/deletion boundary was not verified, so the disposable result was kept and not deleted. The detailed record is in `tasks.md` under **Reliability fixture follow-up — 2026-11-09**.
+
 
 
 
