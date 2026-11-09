@@ -4,7 +4,7 @@
 >
 > **Document rules:** `[Confirmed]`/`[Inferred]`/`[Recommended]`/`[Open question]` as defined in `project-brief.md`. T-01â€“T-13 are historical Phase 1 records; current cross-phase execution status is maintained below and in `implementation-plan.md`.
 
-**Status:** Authorized execution through Phase 8; Phases 1–8 have open acceptance evidence | **Owner:** `shazzark` | **Updated:** 2026-11-07
+**Status:** Authorized execution through Phase 8; Phases 1–8 have open acceptance evidence | **Owner:** `shazzark` | **Updated:** 2026-11-09
 
 **Approved scope:** Phase 8, “Persistent Results and Storage,” was approved for implementation on 2026-11-07. It remains local and offline. Keep implementation, automated checks, and phone evidence distinct.
 
@@ -191,4 +191,12 @@ Current authorization: owner instruction on 2026-11-07 covers Phases 1–8, auto
 - Built a local ARM64/x86_64 release APK with `gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,x86_64`; Gradle completed successfully. The APK is 140,102,912 bytes and contains `libmunimffmpeg.so` for both requested ABIs plus `assets/index.android.bundle`. APK Signature Scheme v2 verifies with the local Android debug certificate. The previous ARMv7 APK (60,110,253 bytes) and metadata were backed up under the untracked `.local-recovery/` area before Gradle replaced its output. Neither artifact was installed or published.
 - `aapt dump permissions` on the new APK confirms no INTERNET, READ/WRITE_EXTERNAL_STORAGE, or READ_MEDIA_VISUAL_USER_SELECTED permission. It does include ACCESS_NETWORK_STATE, RECEIVE_BOOT_COMPLETED, and Google Play Services notification-related permissions; these came from merged dependencies. This is a packaged-artifact finding, not an offline device test.
 - Native library license audit remains open: `THIRD_PARTY_NOTICES.md` explicitly tracks the line-by-line audit as O-4. TalkBack/large-text/reduced-motion phone review and device E2E also remain open. No phase is complete.
+
+## Acceptance refresh (2026-11-09)
+
+- `adb devices -l` currently reports `R58T402DKYB unauthorized`. No phone actions were run; no subtitle samples were added to Results and existing phone outputs remain untouched.
+- `npm test` passed (417 tests across 33 files); `npm run typecheck` passed.
+- Host `ffprobe` reconfirmed the valid isolated subtitle fixtures: MP4/MOV SRT or VTT = `mov_text`; MKV SRT or VTT = `subrip`; MKV ASS = `ass`; re-encoded WebM SRT or VTT = `webvtt`. The 284-byte stream-copy WebM artifact is invalid and excluded. MP4 extracted SRT/VTT fixtures contain the expected dialogue and 0.500–2.400 second cue range. Host checks do not count as phone Results or preview evidence.
+- The local 140,102,912-byte release APK contains the bundled JS and FFmpeg library for arm64-v8a and x86_64. The merged release manifest has no INTERNET or broad storage/media permission and does include ACCESS_NETWORK_STATE. Static checks do not prove offline behavior or a release conversion on-device.
+- All device acceptance items below remain open because ADB is unauthorized. In particular, subtitle samples are not yet in Results. No phase is complete; do not clear finished jobs or delete prior outputs as a workaround.
 

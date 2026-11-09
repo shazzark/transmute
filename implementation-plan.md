@@ -221,6 +221,14 @@ Although the owner reported the A13 unlocked and authorized, host ADB still retu
 
 A separate local release build completed for `arm64-v8a` and `x86_64`. The 140,102,912-byte APK contains the FFmpeg library for both ABIs and the bundled JS; APK Signature Scheme v2 verifies with the local debug key. The earlier ARMv7 APK and metadata were preserved under `.local-recovery/`. The new APK was not installed. `aapt` confirms the packaged manifest has no INTERNET or broad storage/media permission; it does include `ACCESS_NETWORK_STATE`, `RECEIVE_BOOT_COMPLETED`, and Google Play Services notification-related permissions. This static inspection does not verify offline runtime behavior. The line-by-line license audit, E2E, and accessibility device review remain open. No phase is complete.
 
+### Acceptance refresh — 2026-11-09
+
+- `adb devices -l` currently reports `R58T402DKYB unauthorized`. No phone actions were run, so subtitle samples could not be added to Results and existing phone outputs remain untouched. The first requested subtitle check and all remaining app interactions are still open pending ADB authorization.
+- `npm test` passed: 417 tests across 33 files. `npm run typecheck` passed. These verify automated behavior, not device playback or persistence.
+- Re-ran host `ffprobe` on the isolated subtitle audit fixtures. Valid outputs report: MP4/MOV SRT or VTT as `mov_text`; MKV SRT or VTT as `subrip`; MKV ASS as `ass`; re-encoded WebM SRT or VTT as `webvtt`. The 284-byte WebM stream-copy artifact fails probing and is excluded. Existing extracted MP4 SRT/VTT files retain the expected dialogue and 0.500–2.400 second cue range. These are host fixture checks only.
+- Inspected the current local 140,102,912-byte release APK and merged release manifest: bundled JS plus `libmunimffmpeg.so` for arm64-v8a and x86_64; no INTERNET or broad storage/media permission; ACCESS_NETWORK_STATE is present. This does not establish offline runtime behavior or a release conversion on the A13.
+- Open checks remain: device subtitle embedding/extraction, Results preview and video playback; private app-output stream inspection; notification/background behavior; active/copy cancellation and force-stop recovery; large-file/low-storage behavior; 20-row interaction; offline restart, missing-file and safe-deletion behavior; TalkBack/large text/reduced motion; device E2E; native-library license audit; release install and conversion on the A13. No phase meets its full completion criteria.
+
 ### Phase 5 â€” Format matrix and audio extraction
 
 **Current status:** Preset catalogue, runtime encoder/input checks, visible unavailable reasons, audio extraction, validation, command generation, and support matrix are implemented. Preset/encoder/probe/command tests pass. The A13 produced and played Ready results for every enabled audio/video format. The private app-owned output bytes were not separately inspected with `ffprobe`, so Phase 5 remains incomplete.
