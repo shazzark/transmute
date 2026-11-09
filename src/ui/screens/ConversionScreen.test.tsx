@@ -62,6 +62,7 @@ vi.mock('expo-notifications', () => ({
 }));
 vi.mock('expo-sharing', () => ({ isAvailableAsync: vi.fn(async () => true), shareAsync: vi.fn(async () => {}) }));
 vi.mock('expo-video', () => ({ useVideoPlayer: vi.fn(() => ({})), VideoView: 'VideoView' }));
+vi.mock('expo', () => ({ useEventListener: vi.fn() }));
 vi.mock('../../native/resultStorage', () => ({
   historyRepository: {
     list: mocks.historyList,

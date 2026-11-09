@@ -266,7 +266,7 @@ Remaining checks: all other subtitle container combinations and MOV playback/str
 
 ### Phase 6 â€” Subtitles: embed and extract
 
-**Current status:** Sidecar validation, subtitle embedding/extraction paths, naming, and per-container codec rules are implemented and covered by automated tests. On the A13, SRT embedding into MP4 and MKV produced retained Results with playable captions, and embedded-track extraction to SRT/VTT produced readable Results previews. `ffprobe` confirmed the MP4 `mov_text` and MKV `subrip` tracks. SRT→MOV has a retained Ready result but lacks stream/playback evidence; VTT container combinations and styled ASS→MKV are still open. Phase 6 is incomplete.
+**Current status:** Sidecar validation, subtitle embedding/extraction paths, naming, and per-container codec rules are implemented and covered by automated tests. On the A13, SRT embedding into MP4 and MKV produced retained Results with playable captions, and embedded-track extraction to SRT/VTT produced readable Results previews. `ffprobe` confirmed the MP4 `mov_text`, MKV `subrip`, and MOV `mov_text` tracks; the MOV cue is readable by direct extraction, but ResultPlayer exposes no track selector for MOV. A SRT→WebM result also has verified `webvtt` content, but no in-app selector. VTT→MP4/MKV/MOV and styled ASS→MKV remain open. Phase 6 is incomplete.
 
 - **Objective:** Handle subtitle tracks, the remaining advertised feature.
 - **Scope:** Choose a sidecar subtitle file (SRT/ASS/VTT) and embed it into the selected container; list embedded subtitle tracks and extract one to SRT or VTT; validation of the sidecar before starting; naming and collision rules reused unchanged. **Excluded:** styling/burn-in of subtitles into the picture (a different, much slower operation), automatic language detection, subtitle editing.
@@ -303,7 +303,7 @@ Remaining checks: all other subtitle container combinations and MOV playback/str
 
 ### Phase 8 â€” Persistent Results and Storage (approved; implementation in progress)
 
-**Current status:** SQLite schema v1, a versioned migration runner, durable app-owned outputs, reconciliation, missing-file handling, and confirmed history/file actions are implemented. Automated tests pass. SQLite loaded on the A13 and OPUS history/output remained playable after force-stop and relaunch; offline behavior, missing-file handling, and deletion boundaries remain unverified. Phase 8 remains open.
+**Current status:** SQLite schema v1, a versioned migration runner, durable app-owned outputs, reconciliation, missing-file handling, and confirmed history/file actions are implemented. Automated tests pass. SQLite loaded on the A13 and Results/history remained available offline after force-stop and relaunch; missing-file handling and individual deletion boundaries remain unverified. Phase 8 remains open.
 
 - **Objective:** Keep a useful, private conversion history and durable outputs across app restarts, with clear recovery and deletion behavior.
 - **Scope:** Local SQLite conversion history; durable output files stored in app-owned storage; restart recovery that reconciles records with files and interrupted work; explicit missing-file states; user controls to clear history and delete app-owned output files. All records and media stay on-device and work offline. No account, sync, upload, analytics, or network dependency is introduced.
@@ -331,6 +331,14 @@ Remaining checks: all other subtitle container combinations and MOV playback/str
 ## Approval and handoff
 
 Authorization: owner instruction received 2026-10-29 covering Phases 4â€“7 and outstanding earlier acceptance gaps, dependency installation, native builds/device installation when available, documentation, tests, and local phase commits. No push, publish, deploy, or release is authorized.
+
+## Acceptance evidence update — 2026-11-09, A13 authorized
+
+The current device and continuation evidence is in `tasks.md` under **A13 acceptance continuation — 2026-11-09, authorized device**. ADB reports `R58T402DKYB device`; the installed release targets `armeabi-v7a`. A Results player selector was implemented and tested; on-phone MKV playback shows the selected subtitle cue. MOV/WebM embedded streams can be inspected and their cue text extracted, but the player does not expose those tracks on this A13 build. Their playback is not claimed. The VTT/ASS on-device matrix, broader reliability/storage checks, TalkBack, reduced-motion review, E2E, native-library license audit, and full phase gates remain open.
+
+At 200% system text, the tab labels were visibly ellipsized. The tab renderer was changed to cap its own label scaling and render the text without React Navigation truncation. After the release reinstall, a 200% screenshot shows all five labels in full; only the navigation portion of the large-text check is closed. The system text scale and animation settings were restored after testing.
+
+The updated ARMv7 release APK is 60,113,193 bytes, signed by the existing local debug certificate (SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`), and installs with `adb install -r`. `aapt` reports only `armeabi-v7a` and no INTERNET or broad storage/media permission. `npm test` passed (422 tests / 34 files), `npm run typecheck` passed, and `git -c core.whitespace=cr-at-eol diff --check` passed. Phases 1–8 remain incomplete pending their remaining acceptance criteria.
 
 
 

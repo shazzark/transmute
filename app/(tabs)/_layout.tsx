@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Platform, StyleSheet, Text } from 'react-native';
+import { Platform, StyleSheet, Text, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getQueueBadge, subscribeQueueBadge } from '../../src/ui/navigation/queueBadge';
@@ -17,6 +17,7 @@ const tabs = [
 /** The root conversion controller stays mounted while this navigator changes tabs. */
 export default function MainTabs() {
   const insets = useSafeAreaInsets();
+  const { fontScale } = useWindowDimensions();
   const pending = useSyncExternalStore(subscribeQueueBadge, getQueueBadge, getQueueBadge);
   return (
     <Tabs
@@ -37,6 +38,13 @@ export default function MainTabs() {
           name={name}
           options={{
             title,
+            // Render the label ourselves so React Navigation cannot truncate it
+            // at the 200% system text setting; accessibility still uses title.
+            tabBarLabel: ({ color: tint }) => (
+              <Text allowFontScaling={false} numberOfLines={1} style={[styles.label, { color: tint, fontSize: Math.min(Math.max(fontScale, 1), 1.25) * type.caption.fontSize }]}>
+                {title}
+              </Text>
+            ),
             ...(name === 'queue' && pending > 0 ? {
               tabBarBadge: pending > 99 ? '99+' : pending,
               tabBarBadgeStyle: styles.badge,
@@ -59,6 +67,6 @@ const styles = StyleSheet.create({
   },
   item: { minHeight: 48 },
   icon: { fontSize: 21, lineHeight: 24 },
-  label: { fontSize: type.caption.fontSize, lineHeight: 16, marginTop: -2 },
+  label: { fontSize: type.caption.fontSize, lineHeight: 18, marginTop: -2 },
   badge: { backgroundColor: color.accent, color: color.accentInk, fontSize: 10, lineHeight: 14 },
 });
