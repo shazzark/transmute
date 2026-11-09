@@ -53,6 +53,7 @@ import {
   positionOf,
   queueCounts,
   queueReducer,
+  singleWorkJob,
   type QueueAction,
   type QueueJob,
   type QueueState,
@@ -251,8 +252,8 @@ export function ConversionScreen(): React.JSX.Element {
   const availability = resolveAvailability(preset, buildEncoders);
   const running = activeJob(queue);
   const busy = running !== null;
-  /** A single selection keeps the preview, the summary, and the subtitle tools. */
-  const singleJob = queue.jobs.length === 1 ? queue.jobs[0]! : null;
+  /** Settled rows are history; one active file still has a focused preview. */
+  const singleJob = singleWorkJob(queue);
   /**
    * The preview describes one file, and only the file that was actually probed.
    * After a batch is cleared down to a single row, that row may be a different
@@ -563,7 +564,13 @@ export function ConversionScreen(): React.JSX.Element {
       );
 
       const first = outcome.sources[0];
-      if (next.jobs.length === 1 && outcome.sources.length === 1 && first !== undefined) {
+      const focused = singleWorkJob(next);
+      if (
+        outcome.sources.length === 1 &&
+        first !== undefined &&
+        focused !== null &&
+        focused.source.path === first.path
+      ) {
         // Tracks and sidecars belong to the file they were chosen for, not to the app.
         subtitleDispatch({ type: 'subtitles/reset' });
         setSelectedTrackIndex(null);

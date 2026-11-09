@@ -229,6 +229,24 @@ A separate local release build completed for `arm64-v8a` and `x86_64`. The 140,1
 - Inspected the current local 140,102,912-byte release APK and merged release manifest: bundled JS plus `libmunimffmpeg.so` for arm64-v8a and x86_64; no INTERNET or broad storage/media permission; ACCESS_NETWORK_STATE is present. This does not establish offline runtime behavior or a release conversion on the A13.
 - Open checks remain: device subtitle embedding/extraction, Results preview and video playback; private app-output stream inspection; notification/background behavior; active/copy cancellation and force-stop recovery; large-file/low-storage behavior; 20-row interaction; offline restart, missing-file and safe-deletion behavior; TalkBack/large text/reduced motion; device E2E; native-library license audit; release install and conversion on the A13. No phase meets its full completion criteria.
 
+### Acceptance continuation — 2026-11-09, A13 unlocked
+
+This section supersedes the preceding 2026-11-09 unauthorized-device note. `adb devices -l` reports `R58T402DKYB device` (SM-A135F, Android 14/API 34). Device ABIs are `armeabi-v7a,armeabi`; the installed package uses `armeabi-v7a`. The signed ARMv7 release APK (60,110,437 bytes; bundled JS and `libmunimffmpeg.so`) was installed with `adb install -r`, retaining app data and existing Results. Its merged manifest has no INTERNET or broad storage/media permission. Subtitle conversions ran on this release build; the license audit and other release acceptance criteria are still open.
+
+| Check | Evidence | State |
+|---|---|---|
+| Queue/history interaction | Reproduced that settled queue rows hid the single-file preview and inflated batch size. Fixed focus selection to use the sole queued/converting job and batch sizing to count queued work. On-device source preview and subtitle track controls worked with older Results still present. Added queue and batch-start regressions. | Fixed and retested |
+| SRT → MP4 | Ready QA result retained in Results; embedded track selected and cue rendered in Transmute playback. Exported QA file is 294,808 bytes / 2.800 s; `ffprobe` reports H.264, AAC, `mov_text`. | Passed |
+| SRT → MKV | Ready QA result retained in Results; embedded track selected and cue rendered in Transmute playback. Exported QA file is 294,048 bytes / 2.809 s; `ffprobe` reports H.264, AAC, `subrip`. | Passed |
+| Embedded track extraction | SRT and VTT outputs retained in Results; in-app previews show `Transmute offline subtitle sample` and the expected 0.000–2.800 s cue timestamps in each selected format. | Passed |
+| SRT → MOV | Ready sample exists in Results. | Stream inspection and playback open |
+| VTT/ASS embedding | No A13 evidence yet for the requested per-container combinations. | Open |
+| Offline Results persistence | With Wi-Fi and mobile data disabled, force-stopped and relaunched Transmute, opened Results, and confirmed QA MOV/MKV/VTT records remained Ready. Network radios were restored. | Passed for Results/history availability |
+
+The queue fix passed `npm test` (420 tests / 33 files) and `npm run typecheck`. Only the MP4 and MKV subtitle QA samples were exported for `ffprobe`, to `.local-recovery/`; both embedded subtitle video samples plus extracted SRT/VTT remain in app Results. No clear-history, clear-finished, or deletion action was used. This does not verify missing-file behavior or safe deletion.
+
+Remaining checks: all other subtitle container combinations and MOV playback/stream inspection; additional private-output inspection; notification/background; active and copy cancellation; interrupted-job recovery beyond the separate offline Results restart; large-file/low-storage and 20-row device checks; missing-file and safe-deletion behavior; TalkBack/200% text/reduced motion; device E2E; library license audit; final release acceptance. Phases 1–8 remain incomplete because required acceptance items remain open.
+
 ### Phase 5 â€” Format matrix and audio extraction
 
 **Current status:** Preset catalogue, runtime encoder/input checks, visible unavailable reasons, audio extraction, validation, command generation, and support matrix are implemented. Preset/encoder/probe/command tests pass. The A13 produced and played Ready results for every enabled audio/video format. The private app-owned output bytes were not separately inspected with `ffprobe`, so Phase 5 remains incomplete.
@@ -248,7 +266,7 @@ A separate local release build completed for `arm64-v8a` and `x86_64`. The 140,1
 
 ### Phase 6 â€” Subtitles: embed and extract
 
-**Current status:** Sidecar validation, subtitle embedding/extraction paths, naming, and per-container codec rules are implemented and covered by automated tests. Device checks were not run: queue cleanup would delete finished cache directories that may contain older user outputs. Device track listings, embedding, extraction, and preview remain open; Phase 6 is incomplete.
+**Current status:** Sidecar validation, subtitle embedding/extraction paths, naming, and per-container codec rules are implemented and covered by automated tests. On the A13, SRT embedding into MP4 and MKV produced retained Results with playable captions, and embedded-track extraction to SRT/VTT produced readable Results previews. `ffprobe` confirmed the MP4 `mov_text` and MKV `subrip` tracks. SRT→MOV has a retained Ready result but lacks stream/playback evidence; VTT container combinations and styled ASS→MKV are still open. Phase 6 is incomplete.
 
 - **Objective:** Handle subtitle tracks, the remaining advertised feature.
 - **Scope:** Choose a sidecar subtitle file (SRT/ASS/VTT) and embed it into the selected container; list embedded subtitle tracks and extract one to SRT or VTT; validation of the sidecar before starting; naming and collision rules reused unchanged. **Excluded:** styling/burn-in of subtitles into the picture (a different, much slower operation), automatic language detection, subtitle editing.

@@ -16,6 +16,7 @@ import {
   queueCounts,
   queuePercent,
   queueReducer,
+  singleWorkJob,
   type QueueAction,
   type QueueState,
 } from './queue';
@@ -444,5 +445,22 @@ describe('selectors', () => {
     expect(state.presetId).toBe('mkv');
     expect(state.nextNumber).toBe(1);
     expect(canStartQueue(state)).toBe(false);
+  });
+
+  it('finds one new queued file even when completed rows remain', () => {
+    const state = run(
+      queueOf('finished.mp4'),
+      { type: 'queue/started', id: 'job-1' },
+      { type: 'queue/completed', id: 'job-1', output: OUTPUT },
+      { type: 'queue/added', sources: [source('new.mp4')] },
+    );
+
+    expect(singleWorkJob(state)?.source.name).toBe('new.mp4');
+  });
+
+  it('does not call a multi-file queued batch a single-file selection', () => {
+    const state = run(queueOf('a.mp4', 'b.mp4'));
+
+    expect(singleWorkJob(state)).toBeNull();
   });
 });

@@ -25,10 +25,8 @@ export type BatchStartDecision =
  * @param state the queue as the loop sees it.
  * @param alreadyRunning whether a loop is already inside `runQueue`.
  *
- * `batchSize` counts every row, not every queued row: the loop uses it to decide
- * whether the batch is "one file" (probe reuse, automatic copy to Photos, a
- * muxed subtitle sidecar) and that question is about the batch the user built,
- * including rows that already finished.
+ * `batchSize` counts queued rows only. Completed, failed, or cancelled rows are
+ * prior activity, not part of the batch that this Convert action will start.
  */
 export function decideBatchStart(
   state: QueueState,
@@ -50,5 +48,5 @@ export function decideBatchStart(
     return { start: false, reason: 'nothing-queued' };
   }
 
-  return { start: true, batchSize: state.jobs.length };
+  return { start: true, batchSize: counts.queued };
 }

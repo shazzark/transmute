@@ -310,6 +310,15 @@ export function nextQueuedJob(state: QueueState): QueueJob | null {
   return state.jobs.find((job) => job.status === 'queued') ?? null;
 }
 
+/**
+ * Returns the only active file when prior completed, failed, or cancelled rows
+ * remain. Settled rows are history, so they must not hide a single-file preview.
+ */
+export function singleWorkJob(state: QueueState): QueueJob | null {
+  const work = state.jobs.filter((job) => job.status === 'queued' || job.status === 'converting');
+  return work.length === 1 ? work[0]! : null;
+}
+
 export function jobById(state: QueueState, id: string): QueueJob | null {
   return state.jobs.find((job) => job.id === id) ?? null;
 }
