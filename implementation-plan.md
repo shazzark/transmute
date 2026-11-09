@@ -303,7 +303,7 @@ Remaining checks: all other subtitle container combinations and MOV playback/str
 
 ### Phase 8 â€” Persistent Results and Storage (approved; implementation in progress)
 
-**Current status:** SQLite schema v1, a versioned migration runner, durable app-owned outputs, reconciliation, missing-file handling, and confirmed history/file actions are implemented. Automated tests pass. SQLite loaded on the A13 and Results/history remained available offline after force-stop and relaunch; missing-file handling and individual deletion boundaries remain unverified. Phase 8 remains open.
+**Current status:** SQLite schema v1, a versioned migration runner, durable app-owned outputs, reconciliation, missing-file handling, and confirmed history/file actions are implemented. Automated tests pass. SQLite loaded on the A13 and Results/history remained available offline after force-stop and relaunch. One QA output deletion correctly left a missing-output history row and preserved its exported copy; broader recovery and deletion checks remain open. Phase 8 remains open.
 
 - **Objective:** Keep a useful, private conversion history and durable outputs across app restarts, with clear recovery and deletion behavior.
 - **Scope:** Local SQLite conversion history; durable output files stored in app-owned storage; restart recovery that reconciles records with files and interrupted work; explicit missing-file states; user controls to clear history and delete app-owned output files. All records and media stay on-device and work offline. No account, sync, upload, analytics, or network dependency is introduced.
@@ -341,6 +341,8 @@ At 200% system text, the tab labels were visibly ellipsized. The tab renderer wa
 The updated ARMv7 release APK is 60,113,193 bytes, signed by the existing local debug certificate (SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`), and installs with `adb install -r`. `aapt` reports only `armeabi-v7a` and no INTERNET or broad storage/media permission. `npm test` passed (422 tests / 34 files), `npm run typecheck` passed, and `git -c core.whitespace=cr-at-eol diff --check` passed. Phases 1–8 remain incomplete pending their remaining acceptance criteria.
 
 A separate 60-second synthetic QA input converted to a Ready 6.3 MB MKV. The first queue attempt remained Waiting after Home was opened immediately, then completed when started again in the foreground; this is not background-conversion acceptance. The external-copy/deletion boundary was not verified, so the disposable result was kept and not deleted. The detailed record is in `tasks.md` under **Reliability fixture follow-up — 2026-11-09**.
+
+The 5-minute QA input later completed to a 31,675,803-byte MKV. Its active notification progress advanced from 38% to 79% after a Home key event while the foreground service remained active, but the resumed activity was not read simultaneously, so background behavior remains partial. Tapping the completion notification resumed Transmute at Results. Exporting the result to the named QA folder, deleting only its app-owned output, observing the retained **Output missing** history row, and reprobeing the external copy all passed. Evidence is in `tasks.md` under **Notification and deletion-boundary verification — 2026-11-09**.
 
 
 
