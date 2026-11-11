@@ -22,6 +22,7 @@ export interface SavePanelProps {
    */
   readonly kind?: SaveFileKind;
   readonly onSave: (target: SaveTarget) => void;
+  readonly folderActionLabel?: string;
 }
 
 /** The sentence under the buttons, which differs by what is being copied. */
@@ -45,7 +46,7 @@ const FILE_LABELS: Record<SaveFileKind, string> = {
  * saving to a folder does not make the screen claim the file is in Photos
  * (TR-30).
  */
-export function SavePanel({ state, kind = 'media', onSave }: SavePanelProps): React.JSX.Element {
+export function SavePanel({ state, kind = 'media', onSave, folderActionLabel }: SavePanelProps): React.JSX.Element {
   const saving = isSaving(state);
 
   return (
@@ -62,7 +63,11 @@ export function SavePanel({ state, kind = 'media', onSave }: SavePanelProps): Re
           <View key={target} style={styles.action}>
             <SecondaryButton
               label={
-                active ? `Saving to ${targetLabel(target)}…` : `Save to ${targetLabel(target)}`
+                active
+                  ? `Saving to ${targetLabel(target)}…`
+                  : target === 'folder' && folderActionLabel
+                    ? folderActionLabel
+                    : `Save to ${targetLabel(target)}`
               }
               onPress={() => onSave(target)}
               disabled={saving}

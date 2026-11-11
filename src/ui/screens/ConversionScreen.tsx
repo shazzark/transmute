@@ -1403,6 +1403,7 @@ export function ConversionScreen(): React.JSX.Element {
                         state={saveState}
                         kind={focusedHistory.operation === 'subtitle-extraction' ? 'subtitle' : 'media'}
                         onSave={handleSave}
+                        {...(focusedHistory.operation === 'subtitle-extraction' ? { folderActionLabel: 'Save to Phone' } : {})}
                       />
                       <SecondaryButton label="Share" disabled={historyBusy} onPress={() => { void handleShare(finishedOutput); }} />
                       <SecondaryButton label="Delete output file" disabled={historyBusy} onPress={() => requestHistoryAction('delete-output', focusedHistory.id)} destructive />

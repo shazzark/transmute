@@ -6,18 +6,16 @@
 
 **Phases 1–8 remain open pending their full acceptance evidence.** Transmute has local SQLite history and durable app-owned results. Current device evidence and remaining checks are recorded in `implementation-plan.md` and `tasks.md`.
 
-Historical A13 verification on 2026-11-07 used an earlier APK: Home safe areas, tabs, MP3 shortcut, Android Back, picker open/cancel, one 3-second MP3 conversion, ffprobe, SAF save with matching SHA-256, share sheet, and MIT/LGPL notices were checked. The three older cache outputs were preserved during that earlier debug update.
+Phases 1–8 remain open pending their full acceptance evidence. The A13 (`R58T402DKYB`) is authorized. The 2026-11-11 ARMv7 release build is 60,113,657 bytes and was installed with `adb install -r`, preserving app data. It is signed with the local Android debug/test certificate (SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`), not a production release key. Its merged manifest has no `INTERNET` or broad storage/media permission. Full device and automated evidence is recorded in `tasks.md` and `implementation-plan.md`.
 
-Current automated checks pass: npm test reports 417 tests across 33 files, and npm run typecheck succeeds. The optimized ARMv7 release APK built successfully at 59,979,181 bytes. It contains the bundled Android JavaScript asset and libmunimffmpeg for armeabi-v7a. Its manifest has no INTERNET or broad storage permission, and its signing certificate matches the previously installed APK. The release update was installed with adb install -r; the three older outputs were present before installation, and no uninstall or data wipe was performed.
-
-The corrected release cold-started on the unlocked A13 with SQLite available. A derived 176×144 synthetic fixture produced Ready Results for MP4, MKV, MOV, WEBM, MP3, M4A, WAV, FLAC, and OPUS. Each was opened and played or previewed in Transmute; Android media-session state reported `PLAYING` with no error. OPUS remained Ready and playable after force-stop and relaunch. The original 160×144 fixture failed MP4 conversion with the device encoder's 176×144 minimum-resolution message; it was preserved. OGG remains explicitly unavailable because this build lacks `libvorbis`. Subtitle operations and remaining phase device checks are still open; see `implementation-plan.md` and `tasks.md`.
+The current release verified SRT extraction, in-app preview, and saved-result preview after force-stop/relaunch with Wi-Fi and mobile data disabled. OGG/Vorbis remains unavailable. Other subtitle/container combinations and the remaining release checks are open.
 History and output files are kept on this device only. Conversion history uses a versioned SQLite database; completed media and extracted subtitles are copied to Transmute's app-owned Documents storage before they are marked complete. Startup checks interrupted records and missing output files. Results provide separate confirmed actions to delete one output, remove one result and its owned file, or clear all history and owned output files. Transmute does not upload results or require a network connection for conversion or history.
 
 ## Features implemented (device verification remains open)
 
 - Convert video: MP4, MKV, MOV, WEBM (the selector enables a preset only when the build reports its required encoder and a probed input has the needed stream)
 - Extract audio: MP3, M4A/AAC, WAV, FLAC, and OPUS when the bundled encoder is present. OGG/Vorbis is unavailable in the current build because the FFmpeg build recipe omits `--enable-libvorbis`; the selector reports its missing encoder.
-- Embed SRT or VTT sidecars into supported video containers; preserve ASS styling in MKV only; extract text tracks to durable SRT or VTT results
+- Embed SRT or VTT sidecars into supported video containers; preserve ASS styling in MKV only; extract text tracks to durable SRT or VTT Results with an in-app cue-and-timestamp preview
 - Batch conversion queue â€” implemented; Phase 4 device checks open
 - Large-file behavior over 1 GB is not verified in this checkout
 - Background conversion with foreground service notification â€” implemented; device survival and cancellation checks open
@@ -63,17 +61,17 @@ Conversions run in the app's own process, so Android needs a foreground service 
 
 Subtitles are handled as text tracks only â€” nothing is burned into the picture.
 
-- **Embed:** one SRT, WebVTT, or ASS sidecar at a time. Sidecars are validated before the engine reads them. ASS is offered only with MKV because MP4, MOV, and WebM cannot preserve ASS styling. Host fixture checks confirm the expected subtitle codecs, but A13 in-app verification for every container/sidecar pair remains open while ADB is unauthorized.
+- **Embed:** one SRT, WebVTT, or ASS sidecar at a time. Sidecars are validated before the engine reads them. ASS is offered only with MKV because MP4, MOV, and WebM cannot preserve ASS styling. On the A13, SRT embedding and visible track playback were verified in MP4 and MKV. The full VTT/container matrix and styled ASS-in-MKV remain open.
 - **Extract:** supported embedded text tracks can be copied to SRT or VTT. The extracted file is kept in app-owned storage and appears in persistent Results, where its first 100 lines can be previewed; it can also be shared or saved to a folder. A subtitle is text, so it is not offered to Photos.
 
-The table records the requested codec mapping; player behavior is descriptive, not tested on this device. Subtitle track listings, in-app playback, extraction, and Results preview remain unverified on the A13. Host fixture checks are not device acceptance evidence.
+On the A13, embedded MKV captions have an in-app track selector and visible playback. The current Android player stack exposes no subtitle tracks for the tested MOV or WebM files, so Transmute cannot select or show captions from those results in-app; extraction remains available when FFprobe finds a text track. This is a current player limitation, not a claim that those containers lack subtitle tracks. Host fixture checks are not device acceptance evidence.
 
 | Output format | Subtitle codec | What players do with it |
 |---|---|---|
 | MP4 | `mov_text` | VLC, mpv, and most desktop players show the track; some TV and gallery apps ignore it |
-| MOV | `mov_text` | QuickTime Player and VLC show the track |
+| MOV | `mov_text` | Android player selector was absent for the tested result; use an external player for visible playback |
 | MKV | `srt` | SubRip is kept unchanged, so most players offer track selection |
-| WEBM | `webvtt` | the text is converted; players that open WebM usually show the track |
+| WEBM | `webvtt` | Android player selector was absent for the tested result; use an external player for visible playback |
 | MP3, M4A, WAV, FLAC, OGG, OPUS | â€” | audio-only: no subtitle stream exists, so a chosen sidecar is refused before the job starts |
 
 Not yet: subtitle burn-in. ASS styling is preserved only for MKV; unsupported conversions are refused rather than silently flattened.

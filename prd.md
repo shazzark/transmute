@@ -133,6 +133,20 @@ Goals: the user finishes a conversion without training; the app never leaves deb
 - **Priority/status:** P0, authorized; native device acceptance pending.
 - **Acceptance criteria:** Verify permission and service behavior on Android; tap completion notifications in all three app states; ensure no duplicate navigation and no success notice for mixed outcomes.
 
+### PR-17 In-app subtitle preview
+
+- **Requirement:** After extracting an embedded SRT or VTT track, the user can preview its cue text and timestamps inside Transmute. Opening or previewing the result never opens a folder picker. The extracted file is stored as a persistent app-owned Result and remains previewable after offline relaunch. Android's destination picker opens only after the user chooses **Save to Phone** (or the equivalent explicit save action on a Result).
+- **Priority/status:** P0, authorized; SRT preview and offline relaunch verified on the A13; VTT and broader container matrix remain open.
+- **Acceptance criteria:** Extract a test track, open its in-app preview, and confirm cue text and timecodes; force-stop with networking disabled, relaunch, and open the persistent Result; confirm the picker appears only after the explicit save action.
+- **Related journey/dependency:** PR-15; Phase 6 and Phase 8; TR-37.
+
+### PR-18 Video to GIF (capability gated)
+
+- **Requirement:** When the bundled engine proves GIF encoding on the target device, let the user select a video, choose a short clip, set output size and frame rate with sensible defaults, and enqueue the conversion through the existing queue. Store the result persistently and provide an animated Results preview with Save and Share. Do not advertise support until the bundled encoder and muxer have generated and played a genuinely animated GIF on the A13.
+- **Priority/status:** P1, newly authorized and tracked; implementation and A13 capability evidence are open. GIF is not currently advertised as supported.
+- **Acceptance criteria:** Verify the actual bundled capability on the A13; inspect output with ffprobe and confirm multiple animated frames; verify queue progress, cancellation, failure cleanup, Save/Share, and preview after offline relaunch.
+- **Related journey/dependency:** Phase 2 cancellation/cleanup; Phase 4 queue; Phase 8 persistent Results; TR-38.
+
 ## Out of scope
 
 Everything listed under non-goals in `mvp-scope.md`, plus: resuming an interrupted conversion, converting in parallel, background work without a visible notification, and any behavior that depends on a server. Subtitle handling (embed/extract) was approved in Phase 6; local persistent results were approved in Phase 8.

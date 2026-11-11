@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { SubtitleTrack } from '../../domain/probe';
@@ -16,6 +16,7 @@ import { color, radius, spacing, touchTarget, type, weight } from '../tokens';
 import { Banner } from './Banner';
 import { SavePanel } from './SavePanel';
 import { SecondaryButton } from './SecondaryButton';
+import { SubtitleResultPreview } from './SubtitleResultPreview';
 
 export interface SubtitlePanelProps {
   /** What the chosen output format can do with a subtitle track. */
@@ -72,6 +73,7 @@ export function SubtitlePanel({
   onExtract,
   onSaveSubtitles,
 }: SubtitlePanelProps): React.JSX.Element {
+  const [previewOpen, setPreviewOpen] = useState(false);
   const sidecar = state.sidecar;
   const activeTrack = selectedTrackIndex ?? tracks[0]?.streamIndex ?? null;
   const extracting = state.extractionStatus === 'running';
@@ -227,22 +229,25 @@ export function SubtitlePanel({
               <Text style={styles.detail} allowFontScaling>
                 Extracted {state.extractionOutput.name}
               </Text>
-              {/* Once a copy has landed, the folder it went to is the useful
-                  path; the cache path is only shown while it is all there is. */}
+              {/* The extraction is stored as a persistent Result; Save to Phone
+                  is the separate action that opens Android's destination picker. */}
               {savedTo === null ? (
                 <>
                   <Text style={styles.detail} allowFontScaling>
-                    In the app cache
-                  </Text>
-                  <Text style={styles.path} allowFontScaling selectable>
-                    {state.extractionOutput.path}
+                    Stored in Transmute
                   </Text>
                   <Text style={styles.note} allowFontScaling>
-                    The app cache is not visible in your files app, and the system may clear it.
+                    Preview it here any time, or choose Save to Phone to make a copy in a folder you select.
                   </Text>
                 </>
               ) : null}
-              <SavePanel state={saveState} kind="subtitle" onSave={onSaveSubtitles} />
+              <SecondaryButton
+                label={previewOpen ? 'Hide subtitle preview' : 'Preview extracted subtitles'}
+                onPress={() => setPreviewOpen((open) => !open)}
+                accessibilityLabel={`${previewOpen ? 'Hide' : 'Open'} readable preview of ${state.extractionOutput.name}`}
+              />
+              {previewOpen ? <SubtitleResultPreview uri={state.extractionOutput.path} /> : null}
+              <SavePanel state={saveState} kind="subtitle" onSave={onSaveSubtitles} folderActionLabel="Save to Phone" />
             </View>
           ) : null}
 
@@ -378,11 +383,6 @@ const styles = StyleSheet.create({
   },
   output: {
     gap: spacing.xs,
-  },
-  path: {
-    fontSize: type.caption.fontSize,
-    lineHeight: type.caption.lineHeight,
-    color: color.accent,
   },
 });
 

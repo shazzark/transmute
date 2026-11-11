@@ -4,7 +4,7 @@
 >
 > **Document rules:** `[Confirmed]`, `[Inferred]`, `[Recommended]`, `[Open question]` as defined in `project-brief.md`. The owner authorized implementation through Phase 7 on 2026-10-29. Phase status below separates code, automated evidence, and device evidence.
 
-**Status:** Phases 1–7 remain open where acceptance evidence is incomplete; Phase 8 is approved and in progress. Implementation, automated verification, and phone verification are tracked separately below. | **Plan owner:** `shazzark` | **Scope/version:** `v0.1-mvp`
+**Status:** Phases 1–7 remain open where acceptance evidence is incomplete; Phase 8 is approved and in progress. SRT extraction preview and offline Persistent Results preview passed on the A13; broader subtitle matrix and release gates remain open. Video to GIF is tracked as a capability-gated feature and is not advertised or implemented. Implementation, automated verification, and phone verification are tracked separately below. | **Plan owner:** `shazzark` | **Scope/version:** `v0.1-mvp`
 
 ### Current continuation evidence (2026-11-07)
 
@@ -249,7 +249,7 @@ Remaining checks: all other subtitle container combinations and MOV playback/str
 
 ### Phase 5 â€” Format matrix and audio extraction
 
-**Current status:** Preset catalogue, runtime encoder/input checks, visible unavailable reasons, audio extraction, validation, command generation, and support matrix are implemented. Preset/encoder/probe/command tests pass. The A13 produced and played Ready results for every enabled audio/video format. The private app-owned output bytes were not separately inspected with `ffprobe`, so Phase 5 remains incomplete.
+**Current status:** Preset catalogue, runtime encoder/input checks, visible unavailable reasons, audio extraction, validation, command generation, and support matrix are implemented. Preset/encoder/probe/command tests pass. The A13 produced and played Ready results for every enabled audio/video format. Exported QA MP4 and VTT→WebM Results are now probed: MP4 is H.264/AAC, and WebM is VP9/Opus/WebVTT. Existing device evidence also probes the 5-minute MKV as H.264/AAC and one MP3 output; M4A, WAV, FLAC, OPUS and all remaining app-owned Results still need exported-copy inspection. OGG/Vorbis remains unavailable because `libvorbis` is absent. Phase 5 remains incomplete.
 
 - **Objective:** Deliver the advertised formats the build actually supports, without touching UI logic.
 - **Scope:** Presets for MKV, WEBM, M4V/MOV containers and audio extraction to MP3, AAC, WAV, FLAC, OGG/OPUS; capability detection for codecs that are absent from the build; preset-aware validation (e.g. no audio stream â†’ extraction disabled); documented support matrix. **Excluded:** subtitles, hardware encoders, size targeting, remux-only fast path.
@@ -266,7 +266,7 @@ Remaining checks: all other subtitle container combinations and MOV playback/str
 
 ### Phase 6 â€” Subtitles: embed and extract
 
-**Current status:** Sidecar validation, subtitle embedding/extraction paths, naming, and per-container codec rules are implemented and covered by automated tests. On the A13, SRT embedding into MP4 and MKV produced retained Results with playable captions, and embedded-track extraction to SRT/VTT produced readable Results previews. `ffprobe` confirmed the MP4 `mov_text`, MKV `subrip`, and MOV `mov_text` tracks; the MOV cue is readable by direct extraction, but ResultPlayer exposes no track selector for MOV. A SRT→WebM result also has verified `webvtt` content, but no in-app selector. VTT→MP4/MKV/MOV and styled ASS→MKV remain open. Phase 6 is incomplete.
+**Current status:** Sidecar validation, subtitle embedding/extraction paths, naming, and per-container codec rules are implemented and covered by automated tests. On the A13, SRT embedding into MP4 and MKV produced retained Results with playable captions; embedded tracks are extractable to SRT/VTT. The SRT/VTT preview action showed cue text and timecodes, and persistent Results reopened with the same preview after offline force-stop/relaunch. VTT-to-WebM is now exported and inspected on-device: VP9, Opus, WebVTT, 2.800 s; conversion and stream inspection pass. VTT in MP4/MKV/MOV and styled ASS in MKV remain open. In-app playback selectors appear only when Android's Expo Video/Media3 player reports available subtitle tracks; on the tested A13 build, a selector and visible cue were observed for MKV, while tested MOV and WebM Results exposed no track selector. The WebM sample has a confirmed WebVTT stream, but in-app visible playback is unavailable through the current native player path. No unsupported track is hidden by app logic; the selector is conditional on the native player's track list. Phase 6 remains incomplete.
 
 - **Objective:** Handle subtitle tracks, the remaining advertised feature.
 - **Scope:** Choose a sidecar subtitle file (SRT/ASS/VTT) and embed it into the selected container; list embedded subtitle tracks and extract one to SRT or VTT; validation of the sidecar before starting; naming and collision rules reused unchanged. **Excluded:** styling/burn-in of subtitles into the picture (a different, much slower operation), automatic language detection, subtitle editing.
@@ -283,7 +283,7 @@ Remaining checks: all other subtitle container combinations and MOV playback/str
 
 ### Phase 7 â€” Hardening and release readiness
 
-**Current status:** Existing contrast tests, accessibility labels, and license notices are present. An optimized ARMv7 release was built and installed, with artifact size and merged permission evidence recorded in `tasks.md`. The line-by-line native library license audit, TalkBack/200% scaling review, device E2E, and final release-manifest review remain incomplete. Phase 7 is incomplete; this app is not release-ready.
+**Current status:** Existing contrast tests, accessibility labels, and license notices are present. The final ARMv7 test-signed release was rebuilt, installed, hash-matched to the handset, and manually exercised through pick → convert → playback → export → offline relaunch. The full line-by-line native library license audit, TalkBack, 200% review beyond the navigation labels, reduced-motion review, automated on-device E2E, and production signing credentials remain open. Phase 7 is incomplete; the local test-signed build is not a production release.
 
 - **Objective:** Make the app defensible: accessible, licensed, measured, and reproducible.
 - **Scope:** Complete the error taxonomy; TalkBack pass and 200% scaling fixes; token-contrast test wired into the suite; licence audit and in-app notice screen; release build for `arm64-v8a` and `x86_64` with recorded sizes; E2E flow (Maestro or Detox) for pick â†’ convert â†’ save plus cancel; README rewritten to match verified capability; `Readme.md`'s unverified claims corrected. **Excluded:** CI pipeline, store listing assets, analytics, localization, light theme.
@@ -321,6 +321,14 @@ Remaining checks: all other subtitle container combinations and MOV playback/str
 - **Risks/open decisions:** low-space copy failure and device force-stop behavior need phone evidence. Missing/corrupt data must not trigger broad cache deletion; recovery only removes exact app-owned paths.
 - **Completion conditions:** schema/migration and failure tests pass; offline restart and missing-file behavior are demonstrated on device; deletion scope is verified; remaining evidence is recorded separately from implementation. Phase 8 remains open until then.
 
+### Tracked feature — Video to GIF (not yet accepted; PR-18 / TR-38)
+
+**Status:** Planned and capability-gated. Do not list GIF as supported until the bundled FFmpeg encoder and GIF muxer have generated a genuinely animated output on the A13. No GIF conversion code or device evidence is present yet.
+
+- **Required behavior:** pick a video, choose a short clip, set output size and frame rate with safe defaults, enqueue through the existing queue, store in Persistent Results, show an animated Results preview, and offer Save and Share.
+- **Acceptance:** verify bundled capability and output with `ffprobe` on A13; inspect animation (multiple frames and playback); confirm durable app-owned output after offline relaunch; exercise active cancellation and failure cleanup.
+- **Dependencies:** Phase 2 cleanup and cancellation; Phase 4 queue; Phase 8 durable results. Track as separate feature work; it does not close any release phase by itself.
+
 ## Change process
 
 - Any new requirement is added to `prd.md` with a certainty label, then to `trd.md` if it has technical consequences, then scheduled in this plan â€” in that order, so work never exists only in a chat.
@@ -343,6 +351,12 @@ The updated ARMv7 release APK is 60,113,193 bytes, signed by the existing local 
 A separate 60-second synthetic QA input converted to a Ready 6.3 MB MKV. The first queue attempt remained Waiting after Home was opened immediately, then completed when started again in the foreground; this is not background-conversion acceptance. The external-copy/deletion boundary was not verified, so the disposable result was kept and not deleted. The detailed record is in `tasks.md` under **Reliability fixture follow-up — 2026-11-09**.
 
 The 5-minute QA input later completed to a 31,675,803-byte MKV. Its active notification progress advanced from 38% to 79% after a Home key event while the foreground service remained active, but the resumed activity was not read simultaneously, so background behavior remains partial. Tapping the completion notification resumed Transmute at Results. Exporting the result to the named QA folder, deleting only its app-owned output, observing the retained **Output missing** history row, and reprobeing the external copy all passed. Evidence is in `tasks.md` under **Notification and deletion-boundary verification — 2026-11-09**.
+
+### Acceptance continuation — 2026-11-11, final ARMv7 rebuild
+
+The final subtitle Result Details wording was rebuilt and installed over the existing app with `adb install -r`. The 60,113,657-byte `dev.transmute.app` 0.1.0 APK targets `armeabi-v7a`, contains the bundled JavaScript and FFmpeg library, verifies under APK Signature Scheme v2, and matches the pulled installed APK SHA-256 `9E379F07BD970C4662E8A8B75041A1B6B75F8D247DEBC5F656F70EFC90779CF6`. It uses the local Android Debug/test certificate; no production signing credential was used. The merged release manifest has no INTERNET or broad storage/media permission. The installed artifact retained the existing SQLite Results.
+
+On the rebuilt app, SRT and VTT Result Details show readable cue text and timestamps after offline force-stop/relaunch; preview does not open the destination picker, and the explicit folder-copy action reads **Save to Phone**. The existing VTT-to-WebM QA Result was exported and probed as VP9/Opus/WebVTT; its subtitle selector is absent in Expo Video/Media3 on this A13. A synthetic MP4 was picked, converted, played in Result Details, exported, probed as H.264/AAC, and retained in Results after offline relaunch. `npm test` (422 tests across 34 files), typecheck, and the CRLF-aware diff check passed. Phases 1–8 remain incomplete; no completion criteria were relaxed.
 
 
 
