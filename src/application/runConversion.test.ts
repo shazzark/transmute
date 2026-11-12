@@ -659,7 +659,7 @@ describe('runConversion — sidecar subtitles', () => {
     const argv = convert.mock.calls[0]?.[0].argv as string[];
     expect(argv[argv.indexOf('-f') + 1]).toBe('srt');
     expect(argv).toContain(sidecar.path);
-    expect(argv[argv.indexOf('-c:s') + 1]).toBe('srt');
+    expect(argv[argv.indexOf('-c:s:0') + 1]).toBe('srt');
     // The output name still comes from the source, not from the subtitle file.
     expect(argv.at(-1)).toBe('/cache/jobs/job-1/Trip 2026.mkv');
   });
@@ -674,7 +674,7 @@ describe('runConversion — sidecar subtitles', () => {
       sidecar,
     });
     const mp4Argv = mp4.convert.mock.calls[0]?.[0].argv as string[];
-    expect(mp4Argv[mp4Argv.indexOf('-c:s') + 1]).toBe('mov_text');
+    expect(mp4Argv[mp4Argv.indexOf('-c:s:0') + 1]).toBe('mov_text');
 
     const webm = makePorts({
       listEncoders: async () => ['libvpx-vp9', 'libopus', 'webvtt'],
@@ -687,7 +687,7 @@ describe('runConversion — sidecar subtitles', () => {
       sidecar,
     });
     const webmArgv = webm.convert.mock.calls[0]?.[0].argv as string[];
-    expect(webmArgv[webmArgv.indexOf('-c:s') + 1]).toBe('webvtt');
+    expect(webmArgv[webmArgv.indexOf('-c:s:0') + 1]).toBe('webvtt');
   });
 
   it('leaves the command without subtitle arguments when no sidecar is chosen', async () => {
@@ -745,7 +745,7 @@ describe('runConversion — sidecar subtitles', () => {
     // installed, so the job runs and the engine reports any missing codec itself.
     expect(result.status).toBe('done');
     const argv = convert.mock.calls[0]?.[0].argv as string[];
-    expect(argv[argv.indexOf('-c:s') + 1]).toBe('mov_text');
+    expect(argv[argv.indexOf('-c:s:0') + 1]).toBe('mov_text');
   });
 });
 

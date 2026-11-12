@@ -378,6 +378,7 @@ export async function runConversion(options: RunConversionOptions): Promise<Conv
         ? { encoder: { encoder: choice.encoder, pixelFormat: choice.pixelFormat } }
         : {}),
       sourceHasAudio: summary.hasAudio,
+      embeddedSubtitleTracks: summary.subtitleTracks,
       ...(sidecar !== undefined && subtitleTarget !== null
         ? {
             sidecar: {

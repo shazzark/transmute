@@ -1166,13 +1166,13 @@ export function ConversionScreen(): React.JSX.Element {
           onSelectJob={handleSelectJob}
           onCancelAll={handleCancelAll}
           onClearFinished={handleClearFinished}
+          onChooseVideos={() => router.push('/convert' as never)}
           leadingContent={(
             <View style={styles.inner}>
               <View style={styles.header}>
                 <BrandHeader />
                 <Text style={styles.subtitle} allowFontScaling>
-                  Convert videos into another format â€” or take out just the audio â€” on this device.
-                  Nothing is uploaded.
+                  Convert videos or extract audio on this device. Nothing is uploaded.
                 </Text>
               </View>
               {notificationNotice !== null ? (
@@ -1180,7 +1180,7 @@ export function ConversionScreen(): React.JSX.Element {
               ) : null}
               {running !== null ? (
                 <ProgressPanel
-                  phaseLabel={`Converting ${positionOf(queue, running.id)} of ${queue.jobs.length} â€” ${running.source.name}`}
+                  phaseLabel={`Converting ${positionOf(queue, running.id)} of ${queue.jobs.length}: ${running.source.name}`}
                   percent={running.indeterminate ? null : running.progress}
                   elapsedMs={running.elapsedMs}
                   variant={running.indeterminate ? 'indeterminate' : 'determinate'}

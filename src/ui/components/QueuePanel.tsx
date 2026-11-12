@@ -25,6 +25,7 @@ export interface QueuePanelProps {
   readonly onSelectJob: (job: QueueJob) => void;
   readonly onCancelAll: () => void;
   readonly onClearFinished: () => void;
+  readonly onChooseVideos?: () => void;
   readonly leadingContent?: ReactNode;
   readonly trailingContent?: ReactNode;
 }
@@ -154,6 +155,7 @@ export function QueuePanel({
   onSelectJob,
   onCancelAll,
   onClearFinished,
+  onChooseVideos,
   leadingContent,
   trailingContent,
 }: QueuePanelProps): React.JSX.Element {
@@ -174,12 +176,18 @@ export function QueuePanel({
         <>
           {leadingContent}
           <View style={styles.header}>
-            <Text style={styles.label} allowFontScaling accessibilityRole="header">Queue</Text>
-            <Text style={styles.summary} allowFontScaling>{summaryLine(state)}</Text>
+            <Text style={styles.label} allowFontScaling accessibilityRole="header">Your conversions</Text>
+            <Text style={styles.summary} allowFontScaling>Track progress and open completed files in Results</Text>
           </View>
         </>
       )}
-      ListEmptyComponent={<Text style={styles.summary}>The queue is empty.</Text>}
+      ListEmptyComponent={(
+        <View style={styles.emptyState}>
+          <Text style={styles.summary} allowFontScaling>No active conversions.</Text>
+          <Text style={styles.summary} allowFontScaling>Unfinished jobs stay in this session. Completed files are in Results.</Text>
+          {onChooseVideos ? <SecondaryButton label="Choose videos" onPress={onChooseVideos} /> : null}
+        </View>
+      )}
       renderItem={({ item: job }) => (
         <JobRow
           job={job}
@@ -222,6 +230,10 @@ const styles = StyleSheet.create({
   panel: {
     gap: spacing.sm,
     paddingBottom: layout.screenPadding,
+  },
+  emptyState: {
+    alignItems: 'flex-start',
+    gap: spacing.sm,
   },
   list: {
     flex: 1,

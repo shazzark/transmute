@@ -48,12 +48,12 @@ export function ResultPlayer({ uri, label, mimeType }: ResultPlayerProps): React
         />
       </View>
       {!audioOnly && tracks.length > 0 ? (
-        <View style={styles.subtitlePicker} accessibilityRole="radiogroup" accessibilityLabel="Subtitle tracks">
-          <Text style={styles.subtitleHeading} allowFontScaling accessibilityRole="header">Subtitles</Text>
+        <View style={styles.subtitlePicker} accessibilityRole="radiogroup" accessibilityLabel="Captions">
+          <Text style={styles.subtitleHeading} allowFontScaling accessibilityRole="header">Captions</Text>
           <View style={styles.trackOptions}>
             <Pressable
               accessibilityRole="radio"
-              accessibilityLabel="Subtitles off"
+              accessibilityLabel="Captions off"
               accessibilityState={{ selected: selectedKey === null }}
               onPress={() => {
                 player.subtitleTrack = null;
@@ -89,6 +89,11 @@ export function ResultPlayer({ uri, label, mimeType }: ResultPlayerProps): React
           </View>
         </View>
       ) : null}
+      {!audioOnly && tracks.length === 0 && (mimeType === 'video/quicktime' || mimeType === 'video/webm') ? (
+        <Text style={styles.subtitleNote} allowFontScaling>
+          Captions embedded in some MOV and WebM files are not available in this player on this device. Use Extract Subtitles to preview a separate SRT or VTT file.
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -122,6 +127,12 @@ const styles = StyleSheet.create({
     fontSize: type.label.fontSize,
     lineHeight: type.label.lineHeight,
     fontWeight: weight.label,
+  },
+  subtitleNote: {
+    marginTop: spacing.sm,
+    color: color.textSecondary,
+    fontSize: type.caption.fontSize,
+    lineHeight: type.caption.lineHeight,
   },
   trackOptions: {
     flexDirection: 'row',

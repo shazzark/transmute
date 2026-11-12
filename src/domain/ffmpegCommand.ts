@@ -7,7 +7,8 @@
  */
 
 import type { Preset } from './presets';
-import { subtitleCodecFor, subtitleDemuxerFor, type SidecarFormat, type SubtitleFormat } from './subtitles';
+import type { SubtitleTrack } from './probe';
+import { subtitleCodecFor, subtitleDemuxerFor, subtitleTargetFor, type SidecarFormat, type SubtitleFormat } from './subtitles';
 
 export interface VideoEncoderSelection {
   readonly encoder: string;
@@ -36,6 +37,8 @@ export interface BuildArgvInput {
   readonly sourceHasAudio: boolean;
   /** Video presets only; a sidecar on an audio preset is rejected. */
   readonly sidecar?: SidecarArgument;
+  /** Probed embedded text tracks are carried into video outputs when supported. */
+  readonly embeddedSubtitleTracks?: readonly SubtitleTrack[];
 }
 
 export interface GifOptions {
@@ -110,7 +113,7 @@ function assertUsablePath(label: string, value: string): void {
  *         reaches the engine.
  */
 export function buildConversionArgv(input: BuildArgvInput): string[] {
-  const { preset, inputPath, outputPath, encoder, sourceHasAudio, sidecar } = input;
+  const { preset, inputPath, outputPath, encoder, sourceHasAudio, sidecar, embeddedSubtitleTracks = [] } = input;
 
   assertUsablePath('input', inputPath);
   assertUsablePath('output', outputPath);
@@ -141,6 +144,11 @@ export function buildConversionArgv(input: BuildArgvInput): string[] {
     if (sourceHasAudio) {
       argv.push('-map', '0:a:0?');
     }
+    const target = subtitleTargetFor(preset, 'srt');
+    const supportedEmbeddedTracks = target === null ? [] : embeddedSubtitleTracks.filter((track) =>
+      track.codec !== null && ['ass', 'ssa', 'srt', 'subrip', 'webvtt', 'mov_text', 'text'].includes(track.codec),
+    );
+    supportedEmbeddedTracks.forEach((track) => argv.push('-map', `0:s:${track.streamIndex}`));
     if (sidecar) {
       // First subtitle stream of the sidecar input; the container picks the codec.
       argv.push('-map', `${SIDECAR_INPUT_INDEX}:s:0`);
@@ -166,9 +174,27 @@ export function buildConversionArgv(input: BuildArgvInput): string[] {
     }
 
     if (sidecar) {
-      argv.push('-c:s', sidecar.codec);
+      supportedEmbeddedTracks.forEach((track, index) => {
+        const codec = preset.container === 'MKV' && (track.codec === 'ass' || track.codec === 'ssa')
+          ? track.codec
+          : target!.codec;
+        argv.push(`-c:s:${index}`, codec);
+        if (track.language) argv.push(`-metadata:s:s:${index}`, `language=${track.language}`);
+      });
+      const sidecarIndex = supportedEmbeddedTracks.length;
+      argv.push(`-c:s:${sidecarIndex}`, sidecar.codec);
       // A sidecar carries no language, so say so; and make players pick it.
-      argv.push('-metadata:s:s:0', 'language=und', '-disposition:s:0', 'default');
+      argv.push(`-metadata:s:s:${sidecarIndex}`, 'language=und', `-disposition:s:${sidecarIndex}`, 'default');
+    } else if (supportedEmbeddedTracks.length > 0) {
+      supportedEmbeddedTracks.forEach((track, index) => {
+        const codec = preset.container === 'MKV' && (track.codec === 'ass' || track.codec === 'ssa')
+          ? track.codec
+          : target!.codec;
+        argv.push(`-c:s:${index}`, codec);
+        if (track.language) argv.push(`-metadata:s:s:${index}`, `language=${track.language}`);
+        if (track.title) argv.push(`-metadata:s:s:${index}`, `title=${track.title}`);
+        if (track.isDefault) argv.push(`-disposition:s:${index}`, 'default');
+      });
     }
 
     if (FASTSTART_CONTAINERS.includes(preset.container)) {

@@ -153,6 +153,9 @@ export function SubtitlePanel({
         </Text>
       ) : (
         <View style={styles.extract}>
+          <Text style={styles.note} allowFontScaling>
+            Supported embedded text tracks are carried into video conversions automatically. Extract Subtitles stays optional; ASS styling is preserved only in MKV.
+          </Text>
           <Text style={styles.heading} allowFontScaling>
             Take a track out
           </Text>

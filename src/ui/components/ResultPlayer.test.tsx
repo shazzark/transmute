@@ -56,7 +56,7 @@ describe('ResultPlayer subtitle controls', () => {
     expect(mocks.player.subtitleTrack).toBe(track);
     expect(english!.props.accessibilityState.selected).toBe(true);
 
-    const off = buttons().find((node) => node.props.accessibilityLabel === 'Subtitles off');
+    const off = buttons().find((node) => node.props.accessibilityLabel === 'Captions off');
     await act(async () => off!.props.onPress());
     expect(mocks.player.subtitleTrack).toBeNull();
     await act(async () => renderer!.unmount());
@@ -70,6 +70,17 @@ describe('ResultPlayer subtitle controls', () => {
     const track = { id: 'subtitle-2', label: 'Styled', language: 'und' };
     await act(async () => mocks.listeners.get('sourceLoad')?.({ availableSubtitleTracks: [track] }));
     expect(renderer!.root.findAll((node) => String(node.type) === 'Pressable').some((node) => node.props.accessibilityLabel === 'Subtitle track Styled')).toBe(true);
+    await act(async () => renderer!.unmount());
+  });
+
+  it('explains the tested MOV and WebM player limitation when no tracks are exposed', async () => {
+    let renderer: TestRenderer.ReactTestRenderer;
+    await act(async () => {
+      renderer = TestRenderer.create(<ResultPlayer uri="file:///result.webm" label="result.webm" mimeType="video/webm" />);
+    });
+    expect(renderer!.root.findAll((node) => String(node.type) === 'Text').some((node) =>
+      String(node.children.join('')).includes('Captions embedded in some MOV and WebM files')
+    )).toBe(true);
     await act(async () => renderer!.unmount());
   });
 });

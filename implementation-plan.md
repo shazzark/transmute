@@ -6,6 +6,10 @@
 
 **Status:** Phases 1–8 remain open where acceptance evidence is incomplete. SRT/VTT extraction previews and offline Persistent Results preview passed on the A13; broader subtitle matrix and release gates remain open. Video to GIF is implemented and verified on the A13 for animated conversion, Results playback, Save to Phone, Share, and offline relaunch. Device cancellation/failure cleanup remains open. Implementation, automated verification, and phone verification are tracked separately below. | **Plan owner:** `shazzark` | **Scope/version:** `v0.1-mvp`
 
+### Continuation evidence (2026-11-12)
+
+The 2026-11-12 ARMv7 install retained app data. An embedded SRT track was carried from a QA MKV into MP4; the A13 player exposed the track and rendered its cue over moving video at 1.667 seconds, and Off hid it. MKV track selection also passed. Tested MOV/WebM cases expose no tracks in the current player; the UI now explains this limit. Queue copy and empty-state navigation were corrected. See `tasks.md` for exact evidence and unresolved checks. The landing page is a separate local commit using the existing favicon and real animation assets; it has not been deployed. All phases remain open. The Samsung Phone app is currently foregrounded, so further on-device checks require returning to Transmute.
+
 ### Current continuation evidence (2026-11-07)
 
 - The approved clean Android prebuild completed after a verified backup of the ignored `android/` tree. The Reanimated codegen path issue was fixed in `plugins/withShortSafeAreaBuildDirectory.js`; safe-area and gesture-handler short paths remain, while Reanimated keeps its required `node_modules` build path.

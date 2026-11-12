@@ -265,7 +265,7 @@ describe('buildConversionArgv — sidecar subtitles', () => {
     const argv = buildWith('mp4', 'mov_text');
 
     expect(argv[argv.indexOf('1:s:0') - 1]).toBe('-map');
-    expect(argv[argv.indexOf('-c:s') + 1]).toBe('mov_text');
+    expect(argv[argv.indexOf('-c:s:0') + 1]).toBe('mov_text');
     // The track is marked default so a player shows subtitles without a menu trip.
     expect(argv).toContain('language=und');
     expect(argv[argv.indexOf('-disposition:s:0') + 1]).toBe('default');
@@ -301,6 +301,39 @@ describe('buildConversionArgv — sidecar subtitles', () => {
     expect(withSidecar.length).toBeGreaterThan(without.length);
   });
 
+  it('carries embedded text subtitle tracks into video output with container codecs', () => {
+    const argv = buildConversionArgv({
+      preset: getPreset('mp4'),
+      inputPath: '/cache/source.mkv',
+      outputPath: '/cache/job/captions.mp4',
+      encoder: { encoder: 'libopenh264', pixelFormat: 'yuv420p' },
+      sourceHasAudio: false,
+      embeddedSubtitleTracks: [
+        { streamIndex: 0, codec: 'ass', language: 'en', title: 'English', isDefault: true },
+        { streamIndex: 1, codec: 'hdmv_pgs_subtitle', language: null, title: null, isDefault: false },
+      ],
+    });
+
+    expect(argv).toContain('0:s:0');
+    expect(argv).not.toContain('0:s:1');
+    expect(argv).toContain('-c:s:0');
+    expect(argv[argv.indexOf('-c:s:0') + 1]).toBe('mov_text');
+    expect(argv).toContain('language=en');
+    expect(argv).toContain('title=English');
+  });
+
+  it('retains ASS subtitle styling in MKV output', () => {
+    const argv = buildConversionArgv({
+      preset: getPreset('mkv'),
+      inputPath: '/cache/source.mkv',
+      outputPath: '/cache/job/captions.mkv',
+      encoder: { encoder: 'libopenh264', pixelFormat: 'yuv420p' },
+      sourceHasAudio: false,
+      embeddedSubtitleTracks: [{ streamIndex: 0, codec: 'ass', language: null, title: null, isDefault: false }],
+    });
+    expect(argv[argv.indexOf('-c:s:0') + 1]).toBe('ass');
+  });
+
   it('still disables audio when the source is silent and a sidecar is present', () => {
     const argv = buildConversionArgv({
       preset: getPreset('mp4'),
@@ -312,7 +345,7 @@ describe('buildConversionArgv — sidecar subtitles', () => {
     });
 
     expect(argv).toContain('-an');
-    expect(argv).toContain('-c:s');
+    expect(argv).toContain('-c:s:0');
   });
 
   it('refuses a sidecar on an audio-only preset', () => {
