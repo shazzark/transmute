@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101820">
+    <meta name="description" content="Transmute is an offline Android video and audio converter with subtitle tools and video to GIF.">
+    <title>Transmute - media conversion, kept on your phone</title>
+    <link rel="icon" href="favicon.png" type="image/png">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="topbar wrap">
+      <a class="brand" href="#top" aria-label="Transmute home"><img class="brand-icon" src="favicon.png" alt=""> Transmute</a>
+      <nav aria-label="Main navigation"><a href="#features">Features</a><a href="#formats">Formats</a><a href="https://github.com/shazzark/transmute">Source</a></nav>
+    </header>
+
+    <main id="top">
+      <section class="hero wrap">
+        <div class="hero-copy">
+          <p class="eyebrow">ANDROID / LOCAL FIRST</p>
+          <h1>Your media stays<br><em>on your phone.</em></h1>
+          <p class="lede">Convert videos, pull out audio, work with subtitles, and turn a video clip into an animated GIF. Transmute works offline, with files stored on your device.</p>
+          <div class="hero-actions">
+            <span class="button button-muted" aria-disabled="true">Android beta not available yet</span>
+            <a class="text-link" href="https://github.com/shazzark/transmute">View source</a>
+          </div>
+          <p class="availability">A signed beta download will appear here after release verification.</p>
+        </div>
+        <div class="media-demo" aria-label="Real video and animated GIF from Transmute's A13 verification">
+          <div class="media-demo-heading"><span>VIDEO TO GIF</span><span>ON DEVICE / OFFLINE</span></div>
+          <div class="media-demo-pair">
+            <figure><video src="images/video-to-gif-source.webm" autoplay muted loop playsinline controls aria-label="Animated source video used for GIF verification"></video><figcaption>Video source</figcaption></figure>
+            <figure><img src="images/video-to-gif-result.gif" alt="Animated GIF made from the video source"><figcaption>Animated GIF result - silent</figcaption></figure>
+          </div>
+          <p class="media-demo-note">Same moving QA clip, converted and previewed in Transmute Results on a Samsung A13.</p>
+        </div>
+      </section>
+
+      <section class="proof-bar" aria-label="Product facts"><div class="wrap proof-inner"><span><b>01</b> No upload step</span><span><b>02</b> Works offline</span><span><b>03</b> Results stay in app</span></div></section>
+
+      <section id="features" class="section wrap">
+        <div class="section-heading"><p class="eyebrow">MADE FOR THE EVERYDAY FIX</p><h2>Useful tools.<br><em>No cloud detour.</em></h2></div>
+        <div class="feature-grid">
+          <article class="feature-card"><span class="feature-index">A / 01</span><div class="feature-label">VIDEO FORMATS</div><h3>Convert video</h3><p>Choose a local video and an output format. Follow progress in the queue and reopen completed files in Results.</p></article>
+          <article class="feature-card feature-dark"><span class="feature-index">A / 02</span><div class="feature-label">VIDEO TO GIF</div><h3>One animated file</h3><p>Pick a short range, set width and frame rate, and get one silent GIF with its proportions preserved.</p><span class="card-tag">A13 VERIFIED / 72 FRAMES</span></article>
+          <article class="feature-card"><span class="feature-index">A / 03</span><div class="feature-label">SRT / VTT / ASS</div><h3>Subtitle tools</h3><p>Embed supported subtitle tracks, extract a track to SRT or VTT, and preview subtitle Results directly in the app.</p></article>
+          <article class="feature-card"><span class="feature-index">A / 04</span><div class="feature-label">AUDIO FORMATS</div><h3>Audio extraction</h3><p>Make an audio file from a video on the device. Save a separate copy or share it when you choose.</p></article>
+        </div>
+      </section>
+
+      <section class="screenshot-section"><div class="wrap screenshot-layout"><div><p class="eyebrow">A REAL RESULT, ON A SAMSUNG A13</p><h2>Captions where<br>the video plays.</h2><p class="body-copy">For tested MP4 and MKV files, open the finished video in Results and use the native caption controls. Subtitle files can also be previewed without a folder picker.</p><p class="limit-note"><b>Known player limit</b><br>On the tested A13, the player did not expose embedded caption tracks in MOV or WebM, even when probes found the streams. Those files need an external player for embedded caption playback.</p></div><figure class="phone-shot"><img src="images/a13-captions.png" alt="Transmute playing an MKV result on a Samsung phone with a caption track selected"><figcaption>Device screenshot / Transmute Results / MKV caption track</figcaption></figure></div></section>
+
+      <section id="formats" class="section wrap formats-section"><div class="section-heading"><p class="eyebrow">VERIFIED BEHAVIOR, WITH LIMITS</p><h2>What works today.</h2><p class="body-copy">These checks describe the tested Android 14 Samsung A13 build. They are not a promise that every codec variant or container combination works.</p></div>
+        <div class="format-table" role="table" aria-label="Verified formats and limits">
+          <div class="format-row format-head" role="row"><span role="columnheader">Workflow</span><span role="columnheader">Verified on A13</span><span role="columnheader">Limit</span></div>
+          <div class="format-row" role="row"><b role="cell">Video to GIF</b><span role="cell">Animated 480 x 270, 12 fps, 72 frames; Results preview and offline reopen</span><span role="cell">Short clips up to 30 seconds. GIF has no audio.</span></div>
+          <div class="format-row" role="row"><b role="cell">Video conversion</b><span role="cell">MP4 and MKV outputs with H.264/AAC were probed and played</span><span role="cell">Other codecs and presets need per-format checks.</span></div>
+          <div class="format-row" role="row"><b role="cell">Captions</b><span role="cell">SRT/VTT extraction and offline preview; MP4/MKV playback with embedded tracks</span><span role="cell">Tested MOV/WebM embedded tracks were not exposed by the A13 player.</span></div>
+          <div class="format-row" role="row"><b role="cell">WebM</b><span role="cell">VP9 video, Opus audio, WebVTT stream probe</span><span role="cell">Stream presence does not guarantee in-app caption playback.</span></div>
+        </div>
+      </section>
+
+      <section class="closing"><div class="wrap closing-inner"><p class="eyebrow">KEEP IT LOCAL</p><h2>Convert it.<br><em>Keep moving.</em></h2><div><span class="button button-outline" aria-disabled="true">Beta download coming after verification</span><a class="button button-bright" href="https://github.com/shazzark/transmute">View source</a></div></div></section>
+    </main>
+    <footer class="wrap footer"><a class="brand" href="#top"><img class="brand-icon" src="favicon.png" alt=""> Transmute</a><span>Offline media tools for Android.</span><a href="https://github.com/shazzark/transmute">GitHub</a></footer>
+  </body>
+</html>
