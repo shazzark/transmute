@@ -143,8 +143,8 @@ Goals: the user finishes a conversion without training; the app never leaves deb
 ### PR-18 Video to GIF (capability gated)
 
 - **Requirement:** When the bundled engine proves GIF encoding on the target device, let the user select a video, choose a short clip, set output size and frame rate with sensible defaults, and enqueue the conversion through the existing queue. Store the result persistently and provide an animated Results preview with Save and Share. Do not advertise support until the bundled encoder and muxer have generated and played a genuinely animated GIF on the A13.
-- **Priority/status:** P1, newly authorized and tracked; implementation and A13 capability evidence are open. GIF is not currently advertised as supported.
-- **Acceptance criteria:** Verify the actual bundled capability on the A13; inspect output with ffprobe and confirm multiple animated frames; verify queue progress, cancellation, failure cleanup, Save/Share, and preview after offline relaunch.
+- **Priority/status:** P1, implemented and capability-gated. The A13 generated and played an animated GIF, so GIF support may be listed. Device cancellation and failure cleanup remain open.
+- **Acceptance criteria:** A13 encoder/muxer capability, conversion, multi-frame `ffprobe` inspection, Results animation, persistent output after offline relaunch, Save to Phone, and Share passed. Active cancellation and failure cleanup remain open.
 - **Related journey/dependency:** Phase 2 cancellation/cleanup; Phase 4 queue; Phase 8 persistent Results; TR-38.
 
 ## Out of scope

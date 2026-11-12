@@ -4,7 +4,7 @@
 >
 > **Document rules:** `[Confirmed]`, `[Inferred]`, `[Recommended]`, `[Open question]` as defined in `project-brief.md`. The owner authorized implementation through Phase 7 on 2026-10-29. Phase status below separates code, automated evidence, and device evidence.
 
-**Status:** Phases 1–7 remain open where acceptance evidence is incomplete; Phase 8 is approved and in progress. SRT extraction preview and offline Persistent Results preview passed on the A13; broader subtitle matrix and release gates remain open. Video to GIF is tracked as a capability-gated feature and is not advertised or implemented. Implementation, automated verification, and phone verification are tracked separately below. | **Plan owner:** `shazzark` | **Scope/version:** `v0.1-mvp`
+**Status:** Phases 1–8 remain open where acceptance evidence is incomplete. SRT/VTT extraction previews and offline Persistent Results preview passed on the A13; broader subtitle matrix and release gates remain open. Video to GIF is implemented and verified on the A13 for animated conversion, Results playback, Save to Phone, Share, and offline relaunch. Device cancellation/failure cleanup remains open. Implementation, automated verification, and phone verification are tracked separately below. | **Plan owner:** `shazzark` | **Scope/version:** `v0.1-mvp`
 
 ### Current continuation evidence (2026-11-07)
 
@@ -321,12 +321,12 @@ Remaining checks: all other subtitle container combinations and MOV playback/str
 - **Risks/open decisions:** low-space copy failure and device force-stop behavior need phone evidence. Missing/corrupt data must not trigger broad cache deletion; recovery only removes exact app-owned paths.
 - **Completion conditions:** schema/migration and failure tests pass; offline restart and missing-file behavior are demonstrated on device; deletion scope is verified; remaining evidence is recorded separately from implementation. Phase 8 remains open until then.
 
-### Tracked feature — Video to GIF (not yet accepted; PR-18 / TR-38)
+### Tracked feature — Video to GIF (device-verified core; PR-18 / TR-38)
 
-**Status:** Planned and capability-gated. Do not list GIF as supported until the bundled FFmpeg encoder and GIF muxer have generated a genuinely animated output on the A13. No GIF conversion code or device evidence is present yet.
+**Status:** Implemented and capability-gated. The bundled encoder and GIF muxer produced a genuinely animated GIF on the A13; the result opened and animated in Results after an offline force-stop/relaunch. GIF can be listed as supported. Device cancellation/failure cleanup is still open, and this feature does not close any release phase.
 
 - **Required behavior:** pick a video, choose a short clip, set output size and frame rate with safe defaults, enqueue through the existing queue, store in Persistent Results, show an animated Results preview, and offer Save and Share.
-- **Acceptance:** verify bundled capability and output with `ffprobe` on A13; inspect animation (multiple frames and playback); confirm durable app-owned output after offline relaunch; exercise active cancellation and failure cleanup.
+- **Acceptance:** A13 capability, animated output, multiple frames (`ffprobe`: 480×270, 12 fps, 72 frames), in-app Results animation, persistent app-owned output after offline relaunch, Save to Phone, and Share passed. Active cancellation and failure cleanup remain open.
 - **Dependencies:** Phase 2 cleanup and cancellation; Phase 4 queue; Phase 8 durable results. Track as separate feature work; it does not close any release phase by itself.
 
 ## Change process

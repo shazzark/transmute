@@ -32,6 +32,7 @@ const BY_EXTENSION: Record<string, readonly string[]> = {
   mov: ['video/quicktime'],
   mkv: ['video/x-matroska'],
   webm: ['video/webm'],
+  gif: ['image/gif'],
   m4a: ['audio/mp4'],
   mp3: ['audio/mpeg'],
   wav: ['audio/wav'],

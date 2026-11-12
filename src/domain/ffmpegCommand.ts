@@ -38,6 +38,14 @@ export interface BuildArgvInput {
   readonly sidecar?: SidecarArgument;
 }
 
+export interface GifOptions {
+  readonly startSeconds: number;
+  readonly endSeconds: number;
+  readonly width: number;
+  readonly frameRate: number;
+  readonly sourceDurationMs?: number | null;
+}
+
 /** The sidecar is the second input, after the source. */
 const SIDECAR_INPUT_INDEX = 1;
 
@@ -46,6 +54,33 @@ export class InvalidCommandError extends Error {
     super(message);
     this.name = 'InvalidCommandError';
   }
+}
+
+/** GIF conversion trims a bounded silent clip and builds an optimized palette. */
+export function buildGifArgv(input: {
+  readonly inputPath: string;
+  readonly outputPath: string;
+  readonly options: GifOptions;
+}): string[] {
+  const { inputPath, outputPath, options } = input;
+  assertUsablePath('input', inputPath);
+  assertUsablePath('output', outputPath);
+  if (inputPath === outputPath) throw new InvalidCommandError('The output path is the input path; that would overwrite the source.');
+  const { startSeconds, endSeconds, width, frameRate } = options;
+  if (!Number.isFinite(startSeconds) || startSeconds < 0 || !Number.isFinite(endSeconds) || endSeconds <= startSeconds || endSeconds - startSeconds > 30) {
+    throw new InvalidCommandError('Choose a clip between 0 and 30 seconds long.');
+  }
+  if (!Number.isInteger(width) || width < 120 || width > 960) throw new InvalidCommandError('GIF width must be between 120 and 960 pixels.');
+  if (!Number.isInteger(frameRate) || frameRate < 5 || frameRate > 20) throw new InvalidCommandError('GIF frame rate must be between 5 and 20 fps.');
+  if (options.sourceDurationMs !== undefined && options.sourceDurationMs !== null && endSeconds > options.sourceDurationMs / 1000) {
+    throw new InvalidCommandError('GIF end time must be within the selected video.');
+  }
+  const duration = Number((endSeconds - startSeconds).toFixed(3));
+  const filter = `fps=${frameRate},scale=${width}:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer`;
+  return [
+    '-y', '-hide_banner', '-ss', String(startSeconds), '-t', String(duration), '-i', inputPath,
+    '-an', '-filter_complex', `[0:v:0]${filter}`, '-loop', '0', outputPath,
+  ];
 }
 
 /**

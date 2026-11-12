@@ -32,12 +32,12 @@ function toSource(asset: DocumentPicker.DocumentPickerAsset): SourceFile {
   };
 }
 
-export async function pickSourceFiles(): Promise<PickOutcome> {
+export async function pickSourceFiles(multiple = true): Promise<PickOutcome> {
   try {
     const result = await DocumentPicker.getDocumentAsync({
       type: ACCEPTED_TYPES,
       copyToCacheDirectory: true,
-      multiple: true,
+      multiple,
     });
 
     if (result.canceled) {

@@ -44,6 +44,7 @@ function makePorts(overrides: Partial<ConversionPorts> = {}): Fakes {
   const ports: ConversionPorts = {
     probe: async () => probeOk,
     listEncoders: async () => ['h264_mediacodec', 'libopenh264', 'aac'],
+    listMuxers: async () => ['gif', 'mp4', 'matroska', 'webm'],
     convert,
     createJobDirectory: async () => '/cache/jobs/job-1',
     removeDirectory,
@@ -95,6 +96,28 @@ describe('runConversion — success', () => {
     const argv = convert.mock.calls[0]?.[0].argv as string[];
     expect(argv[argv.indexOf('-c:v') + 1]).toBe('h264_mediacodec');
     expect(argv[argv.indexOf('-pix_fmt') + 1]).toBe('nv12');
+  });
+
+  it('writes a silent GIF using the requested clip and palette filter', async () => {
+    const { ports, convert } = makePorts({
+      listEncoders: async () => ['gif'],
+      listMuxers: async () => ['gif'],
+    });
+    const tracker = trackState();
+    const result = await runConversion({
+      source,
+      preset: getPreset('gif'),
+      ports,
+      dispatch: tracker.dispatch,
+      gifOptions: { startSeconds: 1, endSeconds: 4, width: 320, frameRate: 10, sourceDurationMs: 10_000 },
+    });
+
+    expect(result.status).toBe('done');
+    expect(result.outputPath).toBe('/cache/jobs/job-1/Trip 2026.gif');
+    const argv = convert.mock.calls[0]?.[0].argv as string[];
+    expect(argv[argv.indexOf('-t') + 1]).toBe('3');
+    expect(argv).toContain('-an');
+    expect(argv[argv.indexOf('-filter_complex') + 1]).toContain('scale=320:-1');
   });
 
   it('maps statistics to monotonic progress that ends at 100', async () => {

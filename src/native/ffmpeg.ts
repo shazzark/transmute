@@ -13,6 +13,7 @@ import {
   getFFmpegVersion,
   getMediaInformation,
   listEncoders as engineListEncoders,
+  listMuxers as engineListMuxers,
 } from 'munim-ffmpeg';
 
 import type { ConversionPorts, ConvertRequest, ProbeOutcome } from '../application/runConversion';
@@ -99,6 +100,7 @@ export function ffmpegVersion(): string {
 export const enginePorts: ConversionPorts = {
   probe,
   listEncoders: () => engineListEncoders(),
+  listMuxers: () => engineListMuxers(),
   convert,
   ...createJobFilePorts(),
 };

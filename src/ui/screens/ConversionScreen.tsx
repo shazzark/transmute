@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import brandMark from '../../../assets/brand-mark.png';
-import { AccessibilityInfo, Animated, AppState, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Animated, AppState, Image, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import * as Sharing from 'expo-sharing';
@@ -38,6 +38,7 @@ import {
 } from '../../application/serviceNotification';
 import { chooseSidecar } from '../../application/sidecar';
 import { resolveAvailability } from '../../domain/encoders';
+import type { GifOptions } from '../../domain/ffmpegCommand';
 import { describePickFailure, describeUnexpectedFailure, type Failure } from '../../domain/errors';
 import { formatBytes } from '../format';
 import { describeOutcome } from '../../domain/jobNotification';
@@ -94,7 +95,7 @@ import { ResultPlayer } from '../components/ResultPlayer';
 import { SubtitlePanel } from '../components/SubtitlePanel';
 import { SubtitleResultPreview } from '../components/SubtitleResultPreview';
 import { VideoPreviewCard, type PreviewState } from '../components/VideoPreviewCard';
-import { color, layout, spacing, type } from '../tokens';
+import { color, layout, radius, spacing, type } from '../tokens';
 import { updateQueueBadge } from '../navigation/queueBadge';
 
 /** Shown once when Android 13+ notification permission is refused (TR-29). */
@@ -216,6 +217,11 @@ export function ConversionScreen(): React.JSX.Element {
    * conversion path still names any missing codec.
    */
   const [buildEncoders, setBuildEncoders] = useState<readonly string[] | null>(null);
+  const [buildMuxers, setBuildMuxers] = useState<readonly string[] | null>(null);
+  const [gifStart, setGifStart] = useState('0');
+  const [gifEnd, setGifEnd] = useState('8');
+  const [gifWidth, setGifWidth] = useState('480');
+  const [gifFrameRate, setGifFrameRate] = useState('12');
   const [notificationPermission, setNotificationPermission] = useState('Checking…');
   const [introVisible, setIntroVisible] = useState(false);
   const [introReducedMotion, setIntroReducedMotion] = useState(false);
@@ -249,7 +255,10 @@ export function ConversionScreen(): React.JSX.Element {
   }, []);
 
   const preset = getPreset(queue.presetId);
-  const availability = resolveAvailability(preset, buildEncoders);
+  const encoderAvailability = resolveAvailability(preset, buildEncoders);
+  const availability = preset.id === 'gif' && (buildMuxers === null || !buildMuxers.includes('gif'))
+    ? { available: false, reason: 'This build cannot write the GIF container.' }
+    : encoderAvailability;
   const running = activeJob(queue);
   const busy = running !== null;
   /** Settled rows are history; one active file still has a focused preview. */
@@ -313,6 +322,9 @@ export function ConversionScreen(): React.JSX.Element {
           setBuildEncoders(null);
         }
       });
+    enginePorts.listMuxers()
+      .then((muxers) => { if (active) setBuildMuxers(muxers); })
+      .catch(() => { if (active) setBuildMuxers(null); });
     return () => {
       active = false;
     };
@@ -546,7 +558,7 @@ export function ConversionScreen(): React.JSX.Element {
     }
     working.current = true;
     try {
-      const outcome = await pickSourceFiles();
+      const outcome = await pickSourceFiles(mirror.current.presetId !== 'gif');
 
       if (outcome.status === 'cancelled') {
         return;
@@ -575,13 +587,16 @@ export function ConversionScreen(): React.JSX.Element {
         subtitleDispatch({ type: 'subtitles/reset' });
         setSelectedTrackIndex(null);
         cancelSignal.current = { cancelled: false };
-        await prepareSource({
+        const prepared = await prepareSource({
           source: first,
           preset: getPreset(mirror.current.presetId),
           ports: enginePorts,
           dispatch,
           cancelSignal: cancelSignal.current,
         });
+        if (mirror.current.presetId === 'gif' && prepared.summary?.durationMs !== null && prepared.summary?.durationMs !== undefined) {
+          setGifEnd(String(Math.min(8, prepared.summary.durationMs / 1000).toFixed(1)));
+        }
       }
     } finally {
       working.current = false;
@@ -595,9 +610,12 @@ export function ConversionScreen(): React.JSX.Element {
       // state has to agree with the queue about which format this is.
       if (next.presetId === presetId) {
         dispatch({ type: 'preset/selected', presetId });
+        if (presetId === 'gif' && state.summary?.durationMs !== null && state.summary?.durationMs !== undefined) {
+          setGifEnd(String(Math.min(8, state.summary.durationMs / 1000).toFixed(1)));
+        }
       }
     },
-    [apply],
+    [apply, state.summary?.durationMs],
   );
 
   const handleChooseSidecar = useCallback(async () => {
@@ -806,6 +824,11 @@ export function ConversionScreen(): React.JSX.Element {
               }
             },
             cancelSignal: signal,
+            ...(selectedPreset.id === 'gif' ? { gifOptions: {
+              startSeconds: Number(gifStart), endSeconds: Number(gifEnd),
+              width: Number(gifWidth), frameRate: Number(gifFrameRate),
+              sourceDurationMs: batchSize === 1 ? state.summary?.durationMs ?? null : null,
+            } satisfies GifOptions } : {}),
             ...(prepared !== null ? { prepared } : {}),
             ...(sidecar !== null ? { sidecar } : {}),
           });
@@ -1062,9 +1085,22 @@ export function ConversionScreen(): React.JSX.Element {
 
   const counts = queueCounts(queue);
   const queuedCount = counts.queued;
+  const gifStartNumber = Number(gifStart);
+  const gifEndNumber = Number(gifEnd);
+  const gifWidthNumber = Number(gifWidth);
+  const gifFrameRateNumber = Number(gifFrameRate);
+  const gifSettingsValid = preset.id !== 'gif' || (
+    queuedCount === 1 && Number.isFinite(gifStartNumber) && gifStartNumber >= 0 &&
+    Number.isFinite(gifEndNumber) && gifEndNumber > gifStartNumber && gifEndNumber - gifStartNumber <= 30 &&
+    (state.summary?.durationMs == null || gifEndNumber <= state.summary.durationMs / 1000) &&
+    Number.isInteger(gifWidthNumber) && gifWidthNumber >= 120 && gifWidthNumber <= 960 &&
+    Number.isInteger(gifFrameRateNumber) && gifFrameRateNumber >= 5 && gifFrameRateNumber <= 20
+  );
   const convertDisabledReason =
     queuedCount === 0
       ? 'Add a video to convert.'
+      : !gifSettingsValid
+        ? 'GIF needs one queued video, a clip within 30 seconds, a valid end time, width of 120–960 px, and 5–20 fps.'
       : !availability.available
         ? `${preset.label} is not available in this build.`
         : sidecarBlocksFormat
@@ -1261,6 +1297,7 @@ export function ConversionScreen(): React.JSX.Element {
               selectedId={queue.presetId}
               onSelect={handleSelectPreset}
               buildEncoders={buildEncoders}
+              buildMuxers={buildMuxers}
               inputHasVideo={state.summary?.hasVideo ?? null}
               inputHasAudio={state.summary?.hasAudio ?? null}
               disabled={busy || subtitleBusy}
@@ -1280,6 +1317,14 @@ export function ConversionScreen(): React.JSX.Element {
               </Text>
             ) : null}
           </View> : null}
+
+          {showConvert && preset.id === 'gif' ? (
+            <GifOptionsPanel
+              start={gifStart} end={gifEnd} width={gifWidth} frameRate={gifFrameRate}
+              onStart={setGifStart} onEnd={setGifEnd} onWidth={setGifWidth} onFrameRate={setGifFrameRate}
+              sourceDurationMs={state.summary?.durationMs ?? null}
+            />
+          ) : null}
 
           {showConvert && previewJob !== null && state.summary ? (
             <ConversionSummary
@@ -1393,7 +1438,9 @@ export function ConversionScreen(): React.JSX.Element {
                   {focusedHistory.outputSizeBytes !== null ? <Text style={styles.caption}>Size: {formatBytes(focusedHistory.outputSizeBytes)}</Text> : null}
                   {focusedHistory.status === 'completed' && finishedOutput !== null && historyFileAvailable !== false ? (
                     <>
-                      {focusedHistory.outputMimeType?.startsWith('audio/') || focusedHistory.outputMimeType?.startsWith('video/') ? (
+                      {focusedHistory.outputMimeType === 'image/gif' ? (
+                        <Image source={{ uri: finishedOutput.path }} resizeMode="contain" accessibilityLabel={`Animated GIF ${finishedOutput.name}`} style={styles.gifPreview} />
+                      ) : focusedHistory.outputMimeType?.startsWith('audio/') || focusedHistory.outputMimeType?.startsWith('video/') ? (
                         <ResultPlayer uri={finishedOutput.path} label={finishedOutput.name} mimeType={focusedHistory.outputMimeType} />
                       ) : (
                         <SubtitleResultPreview uri={finishedOutput.path} />
@@ -1403,7 +1450,7 @@ export function ConversionScreen(): React.JSX.Element {
                         state={saveState}
                         kind={focusedHistory.operation === 'subtitle-extraction' ? 'subtitle' : 'media'}
                         onSave={handleSave}
-                        {...(focusedHistory.operation === 'subtitle-extraction' ? { folderActionLabel: 'Save to Phone' } : {})}
+                        {...(focusedHistory.operation === 'subtitle-extraction' || focusedHistory.outputMimeType === 'image/gif' ? { folderActionLabel: 'Save to Phone' } : {})}
                       />
                       <SecondaryButton label="Share" disabled={historyBusy} onPress={() => { void handleShare(finishedOutput); }} />
                       <SecondaryButton label="Delete output file" disabled={historyBusy} onPress={() => requestHistoryAction('delete-output', focusedHistory.id)} destructive />
@@ -1501,6 +1548,7 @@ export function ConversionScreen(): React.JSX.Element {
                 runningBatch.current ||
                 busy ||
                 !availability.available ||
+                !gifSettingsValid ||
                 subtitleBusy ||
                 sidecarBlocksFormat ||
                 (previewJob !== null && state.failure !== null && state.summary === null)
@@ -1631,6 +1679,48 @@ function Shortcut({ label, detail, icon, onPress }: { label: string; detail: str
   );
 }
 
+function GifOptionsPanel({
+  start, end, width, frameRate, onStart, onEnd, onWidth, onFrameRate, sourceDurationMs,
+}: {
+  readonly start: string; readonly end: string; readonly width: string; readonly frameRate: string;
+  readonly onStart: (value: string) => void; readonly onEnd: (value: string) => void;
+  readonly onWidth: (value: string) => void; readonly onFrameRate: (value: string) => void;
+  readonly sourceDurationMs: number | null;
+}): React.JSX.Element {
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionLabel} accessibilityRole="header">GIF clip settings</Text>
+      <Text style={styles.caption} allowFontScaling>Choose a clip up to 30 seconds. GIFs are silent; the video’s audio is not included.</Text>
+      {sourceDurationMs !== null ? <Text style={styles.caption}>Video length: {(sourceDurationMs / 1000).toFixed(1)} seconds</Text> : null}
+      <View style={styles.gifFields}>
+        <GifNumberField label="Start (seconds)" value={start} onChange={onStart} accessibilityLabel="GIF start time in seconds" />
+        <GifNumberField label="End (seconds)" value={end} onChange={onEnd} accessibilityLabel="GIF end time in seconds" />
+        <GifNumberField label="Output width (pixels)" value={width} onChange={onWidth} accessibilityLabel="GIF output width in pixels" />
+        <GifNumberField label="Frame rate (fps)" value={frameRate} onChange={onFrameRate} accessibilityLabel="GIF frame rate" />
+      </View>
+      <Text style={styles.caption} allowFontScaling>Width defaults to 480 pixels and the original aspect ratio is kept. Frame rate defaults to 12 fps.</Text>
+    </View>
+  );
+}
+
+function GifNumberField({ label, value, onChange, accessibilityLabel }: {
+  readonly label: string; readonly value: string; readonly onChange: (value: string) => void; readonly accessibilityLabel: string;
+}): React.JSX.Element {
+  return (
+    <View style={styles.gifField}>
+      <Text style={styles.caption} allowFontScaling>{label}</Text>
+      <TextInput
+        value={value}
+        onChangeText={(text) => onChange(text.replace(/[^0-9.]/g, ''))}
+        keyboardType="decimal-pad"
+        accessibilityLabel={accessibilityLabel}
+        style={styles.gifInput}
+        selectTextOnFocus
+      />
+    </View>
+  );
+}
+
 function Entrance({ children, delay }: { readonly children: React.ReactNode; readonly delay: number }): React.JSX.Element {
   const entrance = React.useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -1695,6 +1785,10 @@ export function IntroOverlay({ reducedMotion }: { readonly reducedMotion: boolea
 }
 
 const styles = StyleSheet.create({
+  gifFields: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  gifField: { flexGrow: 1, flexBasis: '45%', gap: spacing.xs },
+  gifInput: { minHeight: 48, borderWidth: 1, borderColor: color.border, borderRadius: radius.control, paddingHorizontal: spacing.md, color: color.textPrimary, backgroundColor: color.surface, fontSize: type.body.fontSize },
+  gifPreview: { width: '100%', height: 280, backgroundColor: '#000000' },
   screen: {
     flex: 1,
     backgroundColor: 'transparent',

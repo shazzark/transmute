@@ -17,6 +17,7 @@ export type PresetId =
   | 'mkv'
   | 'mov'
   | 'webm'
+  | 'gif'
   | 'mp3'
   | 'm4a'
   | 'wav'
@@ -124,6 +125,19 @@ const WEBM: Preset = {
   extraVideoArgs: ['-deadline', 'realtime', '-cpu-used', '5', '-row-mt', '1'],
 };
 
+const GIF: Preset = {
+  id: 'gif',
+  label: 'GIF',
+  detail: 'Animated image · silent',
+  kind: 'video',
+  container: 'GIF',
+  extension: '.gif',
+  videoEncoderCandidates: ['gif'],
+  audioCodec: null,
+  audioBitrate: null,
+  videoBitrate: null,
+};
+
 /**
  * The audio-only targets. `audioCodec` is simultaneously the `-c:a` value and
  * the encoder name the build must expose, so one string drives both the command
@@ -212,7 +226,7 @@ const OPUS: Preset = {
 };
 
 /** Display order in the selector: video formats first, then audio-only. */
-export const PRESETS: readonly Preset[] = [MP4, MKV, MOV, WEBM, MP3, M4A, WAV, FLAC, OGG, OPUS];
+export const PRESETS: readonly Preset[] = [MP4, MKV, MOV, WEBM, GIF, MP3, M4A, WAV, FLAC, OGG, OPUS];
 
 /** The preset a new job starts on. */
 export const DEFAULT_PRESET_ID: PresetId = 'mp4';

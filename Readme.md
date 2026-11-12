@@ -4,16 +4,17 @@
 
 ## Status
 
-**Phases 1–8 remain open pending their full acceptance evidence.** Transmute has local SQLite history and durable app-owned results. Current device evidence and remaining checks are recorded in `implementation-plan.md` and `tasks.md`.
+**Phases 1–8 remain open pending their full acceptance evidence.** Transmute has local SQLite history and durable app-owned results. Video-to-GIF conversion is verified on the A13 for animated playback, Save to Phone, Share, and offline relaunch; device cancellation/failure cleanup remains open. Current device evidence and remaining checks are recorded in `implementation-plan.md` and `tasks.md`.
 
-Phases 1–8 remain open pending their full acceptance evidence. The A13 (`R58T402DKYB`) is authorized. The 2026-11-11 ARMv7 release build is 60,113,657 bytes and was installed with `adb install -r`, preserving app data. It is signed with the local Android debug/test certificate (SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`), not a production release key. Its merged manifest has no `INTERNET` or broad storage/media permission. Full device and automated evidence is recorded in `tasks.md` and `implementation-plan.md`.
+Phases 1–8 remain open pending their full acceptance evidence. The A13 (`R58T402DKYB`) is authorized. The 2026-11-12 ARMv7 release APK is 60,120,069 bytes (SHA-256 `7BB608D139B834A07FF1810A8106067DD364517123D0D6D303C8DC99FC03F143`); its hash matches the installed package pulled from the phone. It was installed with `adb install -r`, preserving app data, and is signed with the local Android debug/test certificate, not a production release key. Its merged manifest has no `INTERNET` or broad storage/media permission. Full device and automated evidence is recorded in `tasks.md` and `implementation-plan.md`.
 
 The current release verified SRT extraction, in-app preview, and saved-result preview after force-stop/relaunch with Wi-Fi and mobile data disabled. OGG/Vorbis remains unavailable. Other subtitle/container combinations and the remaining release checks are open.
 History and output files are kept on this device only. Conversion history uses a versioned SQLite database; completed media and extracted subtitles are copied to Transmute's app-owned Documents storage before they are marked complete. Startup checks interrupted records and missing output files. Results provide separate confirmed actions to delete one output, remove one result and its owned file, or clear all history and owned output files. Transmute does not upload results or require a network connection for conversion or history.
 
-## Features implemented (device verification remains open)
+## Features implemented (device verification remains open for the remaining acceptance checks)
 
 - Convert video: MP4, MKV, MOV, WEBM (the selector enables a preset only when the build reports its required encoder and a probed input has the needed stream)
+- Convert a short video clip to an animated GIF: choose start/end time, output width, and frame rate; GIFs are silent and preserve the source aspect ratio. Verified on the Samsung A13, including in-app animation, Save to Phone, Share, and offline relaunch.
 - Extract audio: MP3, M4A/AAC, WAV, FLAC, and OPUS when the bundled encoder is present. OGG/Vorbis is unavailable in the current build because the FFmpeg build recipe omits `--enable-libvorbis`; the selector reports its missing encoder.
 - Embed SRT or VTT sidecars into supported video containers; preserve ASS styling in MKV only; extract text tracks to durable SRT or VTT Results with an in-app cue-and-timestamp preview
 - Batch conversion queue â€” implemented; Phase 4 device checks open
@@ -30,6 +31,7 @@ The bundled engine's encoder inventory controls which formats the selector enabl
 | Video | MKV | H.264 + AAC | H.264 encoder candidate and AAC encoder | Ready, 294 kB; in-app playback confirmed |
 | Video | MOV | H.264 + AAC | H.264 encoder candidate and AAC encoder | Ready, 294 kB; in-app playback confirmed |
 | Video | WEBM | VP9 + Opus | `libvpx-vp9` or `libvpx`, plus `libopus` | Ready, 238 kB; in-app playback confirmed |
+| Video | GIF | Animated GIF, silent | `gif` encoder and muxer | Ready; 480×270, 12 fps, 72 frames; animated Results preview and offline relaunch confirmed |
 | Audio | MP3 | MP3 | `libmp3lame` | Ready, 68.5 kB; in-app playback confirmed |
 | Audio | M4A | AAC | `aac` | Ready, 44.2 kB; in-app playback confirmed |
 | Audio | WAV | PCM signed 16-bit | `pcm_s16le` | Ready, 246 kB; in-app playback confirmed |

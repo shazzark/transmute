@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   pickSourceFiles: vi.fn(),
   listEncoders: vi.fn(),
+  listMuxers: vi.fn(),
   runConversion: vi.fn(),
   prepareSource: vi.fn(),
   push: vi.fn(),
@@ -101,7 +102,7 @@ vi.mock('../../application/runConversion', () => ({
   runConversion: mocks.runConversion,
 }));
 vi.mock('../../native/ffmpeg', () => ({
-  enginePorts: { listEncoders: mocks.listEncoders },
+  enginePorts: { listEncoders: mocks.listEncoders, listMuxers: mocks.listMuxers },
   cancelActiveConversion: vi.fn(),
 }));
 vi.mock('../../native/documentPicker', () => ({ pickSourceFiles: mocks.pickSourceFiles }));
@@ -187,6 +188,7 @@ describe('ConversionScreen Convert action', () => {
       sources: [{ path: '/cache/input.mp4', name: 'input.mp4', sizeBytes: 1024, mimeType: 'video/mp4' }],
     });
     mocks.listEncoders.mockReset().mockResolvedValue(['h264_mediacodec', 'aac']);
+    mocks.listMuxers.mockReset().mockResolvedValue(['gif', 'mp4']);
     mocks.prepareSource.mockReset().mockResolvedValue(undefined);
     mocks.runConversion.mockReset().mockImplementation(() => new Promise((resolve) => { finishConversion = resolve; }));
     await act(async () => { renderer = TestRenderer.create(React.createElement(ConversionScreen)); });

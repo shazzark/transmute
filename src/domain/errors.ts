@@ -13,6 +13,7 @@ export type FailureCode =
   | 'pick-failed'
   | 'probe-failed'
   | 'unsupported-source'
+  | 'unsupported-format'
   | 'no-encoder'
   | 'source-too-small'
   | 'engine-failed'

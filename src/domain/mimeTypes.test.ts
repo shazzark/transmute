@@ -16,6 +16,7 @@ describe('mimeTypeFor', () => {
     expect(mimeTypeFor('Trip 2026.mkv')).toBe('video/x-matroska');
     expect(mimeTypeFor('Trip 2026.mov')).toBe('video/quicktime');
     expect(mimeTypeFor('Trip 2026.webm')).toBe('video/webm');
+    expect(mimeTypeFor('Trip 2026.gif')).toBe('image/gif');
     expect(mimeTypeFor('Track.mp3')).toBe('audio/mpeg');
     expect(mimeTypeFor('Track.m4a')).toBe('audio/mp4');
     expect(mimeTypeFor('Track.wav')).toBe('audio/wav');

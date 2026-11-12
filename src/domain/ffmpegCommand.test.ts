@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildConversionArgv, buildExtractionArgv, InvalidCommandError } from './ffmpegCommand';
+import { buildConversionArgv, buildExtractionArgv, buildGifArgv, InvalidCommandError } from './ffmpegCommand';
 import { getPreset, PRESETS } from './presets';
 
 const mp4 = getPreset('mp4');
@@ -184,7 +184,7 @@ describe('container-specific arguments', () => {
   });
 });
 
-describe.each(PRESETS.filter((preset) => preset.kind === 'video'))(
+describe.each(PRESETS.filter((preset) => preset.kind === 'video' && preset.id !== 'gif'))(
   '$label video command',
   (preset) => {
     it('is complete and ends at the output path', () => {
@@ -205,6 +205,31 @@ describe.each(PRESETS.filter((preset) => preset.kind === 'video'))(
     });
   },
 );
+
+describe('buildGifArgv', () => {
+  const options = { startSeconds: 1.5, endSeconds: 5.5, width: 480, frameRate: 12 };
+
+  it('trims, scales without changing aspect ratio, builds a palette, and loops silently', () => {
+    const argv = buildGifArgv({ inputPath: '/cache/motion.mp4', outputPath: '/cache/motion.gif', options });
+    expect(argv[argv.indexOf('-ss') + 1]).toBe('1.5');
+    expect(argv[argv.indexOf('-t') + 1]).toBe('4');
+    expect(argv).toContain('-an');
+    expect(argv[argv.indexOf('-filter_complex') + 1]).toContain('fps=12,scale=480:-1:flags=lanczos');
+    expect(argv[argv.indexOf('-filter_complex') + 1]).toContain('palettegen');
+    expect(argv[argv.indexOf('-loop') + 1]).toBe('0');
+    expect(argv.at(-1)).toBe('/cache/motion.gif');
+  });
+
+  it.each([
+    [{ ...options, endSeconds: 0 }, /between 0 and 30/],
+    [{ ...options, endSeconds: 40 }, /between 0 and 30/],
+    [{ ...options, width: 100 }, /width must be/],
+    [{ ...options, frameRate: 30 }, /frame rate must be/],
+    [{ ...options, endSeconds: 11, sourceDurationMs: 10_000 }, /within the selected video/],
+  ])('rejects invalid settings %j', (invalid, message) => {
+    expect(() => buildGifArgv({ inputPath: '/cache/in.mp4', outputPath: '/cache/out.gif', options: invalid })).toThrow(message);
+  });
+});
 
 describe('buildConversionArgv — sidecar subtitles', () => {
   const sidecar = { path: '/cache/jobs/job-11/Trip 2026.srt', format: 'srt' as const };

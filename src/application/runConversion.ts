@@ -27,7 +27,7 @@ import {
   type EngineOutcome,
   type Failure,
 } from '../domain/errors';
-import { buildConversionArgv, InvalidCommandError } from '../domain/ffmpegCommand';
+import { buildConversionArgv, buildGifArgv, InvalidCommandError, type GifOptions } from '../domain/ffmpegCommand';
 import { buildOutputName, resolveCollision, sanitizeBaseName } from '../domain/naming';
 import type { Preset, PresetId } from '../domain/presets';
 import { progressFromStatistics } from '../domain/progress';
@@ -55,6 +55,8 @@ export interface ConversionPorts {
   probe(path: string): Promise<ProbeOutcome>;
   /** Encoders the bundled build can write. */
   listEncoders(): Promise<readonly string[]>;
+  /** Container formats the bundled FFmpeg build can write. */
+  listMuxers(): Promise<readonly string[]>;
   /** Runs FFmpeg and resolves when the native session settles. */
   convert(request: ConvertRequest): Promise<EngineOutcome>;
   /** Creates and returns an empty, job-owned directory in the app cache. */
@@ -142,6 +144,18 @@ async function resolveSource(options: ResolveOptions): Promise<ResolveResult> {
   }
 
   const encoders = await ports.listEncoders();
+
+  if (preset.id === 'gif') {
+    const muxers = await ports.listMuxers();
+    if (!encoders.includes('gif') || !muxers.includes('gif')) {
+      return { ok: false, summary, failure: {
+        code: 'unsupported-format', title: 'GIF is unavailable',
+        message: 'This bundled FFmpeg build cannot encode and write animated GIF files.',
+        recovery: 'Choose another output format.',
+      } };
+    }
+    return { ok: true, summary, choice: { ok: true, encoder: 'gif', hardware: false, pixelFormat: 'yuv420p' }, audioEncoder: null };
+  }
 
   if (preset.kind === 'audio') {
     const audio = chooseAudioEncoder(preset, encoders);
@@ -259,6 +273,8 @@ export interface RunConversionOptions extends PrepareOptions {
   readonly now?: () => number;
   /** Validated sidecar subtitle to mux into the output, when one was chosen. */
   readonly sidecar?: ValidatedSidecar;
+  /** Required only for GIF output; settings are validated again by the argv builder. */
+  readonly gifOptions?: GifOptions;
 }
 
 export interface ConversionResult {
@@ -270,7 +286,7 @@ export interface ConversionResult {
 
 
 export async function runConversion(options: RunConversionOptions): Promise<ConversionResult> {
-  const { source, preset, ports, dispatch, cancelSignal, prepared, sidecar } = options;
+  const { source, preset, ports, dispatch, cancelSignal, prepared, sidecar, gifOptions } = options;
   const now = options.now ?? (() => Date.now());
   const cleanup = createCleanup(ports);
 
@@ -349,7 +365,12 @@ export async function runConversion(options: RunConversionOptions): Promise<Conv
     const outputName = resolveCollision(buildOutputName(source.name, preset.extension), existing);
     const outputPath = ports.joinPath(jobDirectory, outputName);
 
-    const argv = buildConversionArgv({
+    const resolvedGifOptions = preset.id === 'gif'
+      ? { startSeconds: 0, endSeconds: 8, width: 480, frameRate: 12, ...gifOptions, sourceDurationMs: summary.durationMs }
+      : null;
+    const argv = resolvedGifOptions !== null
+      ? buildGifArgv({ inputPath: source.path, outputPath, options: resolvedGifOptions })
+      : buildConversionArgv({
       preset,
       inputPath: source.path,
       outputPath,
@@ -366,18 +387,21 @@ export async function runConversion(options: RunConversionOptions): Promise<Conv
             },
           }
         : {}),
-    });
+      });
 
+    const expectedDurationMs = resolvedGifOptions === null
+      ? summary.durationMs ?? undefined
+      : (resolvedGifOptions.endSeconds - resolvedGifOptions.startSeconds) * 1000;
     let shownPercent = 0;
     const startedAt = now();
     const outcome = await ports.convert({
       argv,
-      durationMs: summary.durationMs ?? undefined,
+      durationMs: expectedDurationMs,
       onProgress: (processedMs) => {
         const sample = progressFromStatistics(
           shownPercent,
           processedMs,
-          summary.durationMs ?? undefined,
+          expectedDurationMs,
         );
         shownPercent = sample.percent ?? shownPercent;
         dispatch({

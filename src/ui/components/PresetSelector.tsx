@@ -13,6 +13,7 @@ export interface PresetSelectorProps {
    * An unknown build leaves every tile tappable; a known gap disables one.
    */
   buildEncoders?: readonly string[] | null;
+  buildMuxers?: readonly string[] | null;
   inputHasVideo?: boolean | null;
   inputHasAudio?: boolean | null;
   disabled?: boolean;
@@ -28,6 +29,7 @@ export function PresetSelector({
   selectedId,
   onSelect,
   buildEncoders = null,
+  buildMuxers = null,
   inputHasVideo = null,
   inputHasAudio = null,
   disabled = false,
@@ -42,10 +44,13 @@ export function PresetSelector({
           <Text style={styles.groupLabel} accessibilityRole="header">{label}</Text>
           <View style={styles.grid}>
             {PRESETS.filter((preset) => preset.kind === kind).map((preset) => {
-              const availability = resolveAvailability(preset, buildEncoders, {
+              const resolvedAvailability = resolveAvailability(preset, buildEncoders, {
                 hasVideo: inputHasVideo,
                 hasAudio: inputHasAudio,
               });
+              const availability = preset.id === 'gif' && (buildMuxers === null || !buildMuxers.includes('gif'))
+                ? { available: false, reason: 'This build cannot write the GIF container.' }
+                : resolvedAvailability;
               return (
                 <PresetTile
                   key={preset.id}

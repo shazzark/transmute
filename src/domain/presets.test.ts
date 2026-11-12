@@ -3,12 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_PRESET_ID, getPreset, PRESETS, type PresetId } from './presets';
 
 describe('preset catalogue', () => {
-  it('offers four video containers and six audio targets', () => {
+  it('offers four video containers, GIF, and six audio targets', () => {
     expect(PRESETS.filter((preset) => preset.kind === 'video').map((preset) => preset.label)).toEqual([
       'MP4',
       'MKV',
       'MOV',
       'WEBM',
+      'GIF',
     ]);
     expect(PRESETS.filter((preset) => preset.kind === 'audio').map((preset) => preset.label)).toEqual([
       'MP3',
@@ -39,12 +40,14 @@ describe('preset catalogue', () => {
     }
   });
 
-  it('gives video presets an encoder ladder and an audio codec', () => {
-    for (const preset of PRESETS.filter((candidate) => candidate.kind === 'video')) {
+  it('gives video presets an encoder ladder; GIF is silent', () => {
+    for (const preset of PRESETS.filter((candidate) => candidate.kind === 'video' && candidate.id !== 'gif')) {
       expect(preset.videoEncoderCandidates.length).toBeGreaterThan(0);
       expect(preset.audioCodec).not.toBeNull();
       expect(preset.videoBitrate).not.toBeNull();
     }
+    expect(getPreset('gif').audioCodec).toBeNull();
+    expect(getPreset('gif').videoEncoderCandidates).toEqual(['gif']);
   });
 
   it('gives audio presets one codec and no video settings', () => {
