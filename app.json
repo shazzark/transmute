@@ -60,6 +60,7 @@
         }
       ],
       "./plugins/withShortSafeAreaBuildDirectory",
+      "./plugins/withAndroidReleaseSigning",
       "munim-ffmpeg",
       "./plugins/withReleaseNoInternet",
       [

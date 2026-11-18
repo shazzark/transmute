@@ -6,10 +6,8 @@ This is a static, dependency-free landing page. Preview it from the repository r
 python -m http.server 4173 --directory website
 ```
 
-Then open <http://localhost:4173>. The page uses one locally stored Samsung A13 screenshot in `images/`; the beta download stays unavailable until a signed APK release URL is verified.
+Then open <http://localhost:4173>. The page uses locally stored Samsung A13 verification media in `images/`. The Android beta download is marked as coming soon until a verified release asset is available; GitHub source links remain available.
 
-## Publish with GitHub Pages
+## Deploy with Vercel
 
-The workflow in `.github/workflows/pages.yml` deploys the `website/` directory when its files change on `main` and can also be run manually. After merging/pushing the website commit, open **Settings → Pages**, set **Build and deployment → Source** to **GitHub Actions**, then monitor **Actions → Deploy Transmute website**. The workflow reports the resulting URL. This repository change itself does not publish the site.
-
-After an Android release is created, replace the availability messages in `index.html` with the verified release APK URL and update the release-notes reference. Commit and push that website update to redeploy. Share the Pages URL shown in the workflow run with testers.
+Deploy `website/` as a static site in Vercel, reusing the Transmute project if one exists. Set Root Directory to `website`, Framework Preset to `Other`, leave Build Command blank, and set Output Directory to `.`. No environment variables are required. The page currently says Android beta coming soon and links to the GitHub source; update it only after a downloadable release exists.

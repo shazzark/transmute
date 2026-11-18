@@ -4,6 +4,7 @@ const marker = '// Keep native codegen outputs short and inside ignored android/
 const legacyMarker = '// Keep safe-area codegen sources under the short project root.';
 const nativePoolMarker = '// Limit each CMake/Ninja project to one compile and link job.';
 const appNativePoolMarker = '// Keep the app CMake/Ninja build within the one-job memory limit.';
+const releaseBundleOrderMarker = '// Build release native code before Metro scans the generated tree.';
 const appNativePoolRule = `
 ${appNativePoolMarker}
 android {
@@ -15,6 +16,42 @@ android {
             '-DCMAKE_JOB_POOL_LINK=transmute_compile'
       }
     }
+  }
+}
+`;
+const releaseBundleOrderRule = `
+${releaseBundleOrderMarker}
+afterEvaluate {
+  tasks.named('createBundleReleaseJsAndAssets') {
+    dependsOn(
+      ':react-native-gesture-handler:compileReleaseJavaWithJavac',
+      ':react-native-gesture-handler:packageReleaseResources',
+      ':react-native-gesture-handler:generateReleaseBuildConfig',
+      ':react-native-gesture-handler:generateCodegenArtifactsFromSchema',
+      ':react-native-gesture-handler:processReleaseNavigationResources',
+      ':react-native-gesture-handler:configureCMakeRelWithDebInfo[armeabi-v7a]',
+      ':react-native-gesture-handler:buildCMakeRelWithDebInfo[armeabi-v7a]',
+      ':react-native-gesture-handler:mergeReleaseJniLibFolders',
+      ':react-native-gesture-handler:copyReleaseJniLibsProjectOnly',
+      ':react-native-gesture-handler:mergeReleaseNativeLibs',
+      ':react-native-gesture-handler:compileReleaseKotlin',
+      ':react-native-reanimated:compileReleaseJavaWithJavac',
+      ':react-native-reanimated:packageReleaseResources',
+      ':react-native-reanimated:generateReleaseBuildConfig',
+      ':react-native-reanimated:generateCodegenArtifactsFromSchema',
+      ':react-native-reanimated:copyReleaseJniLibsProjectOnly',
+      ':react-native-reanimated:exportReleaseConsumerProguardFiles',
+      ':react-native-reanimated:mergeReleaseJniLibFolders',
+      ':react-native-reanimated:mergeReleaseNativeLibs',
+      ':react-native-safe-area-context:compileReleaseJavaWithJavac',
+      ':react-native-safe-area-context:compileReleaseKotlin',
+      ':react-native-safe-area-context:copyReleaseJniLibsProjectOnly',
+      ':react-native-safe-area-context:generateCodegenArtifactsFromSchema',
+      ':react-native-safe-area-context:generateReleaseBuildConfig',
+      ':react-native-safe-area-context:mergeReleaseJniLibFolders',
+      ':react-native-safe-area-context:packageReleaseResources',
+      ':react-native-safe-area-context:processReleaseNavigationResources'
+    )
   }
 }
 `;
@@ -68,9 +105,14 @@ module.exports = function withShortSafeAreaBuildDirectory(config) {
   });
 
   return withAppBuildGradle(config, (config) => {
-    if (!config.modResults.contents.includes(appNativePoolMarker)) {
-      config.modResults.contents = `${config.modResults.contents.trimEnd()}\n${appNativePoolRule}`;
+    let contents = config.modResults.contents;
+    if (!contents.includes(appNativePoolMarker)) {
+      contents = `${contents.trimEnd()}\n${appNativePoolRule}`;
     }
+    if (!contents.includes(releaseBundleOrderMarker)) {
+      contents = `${contents.trimEnd()}\n${releaseBundleOrderRule}`;
+    }
+    config.modResults.contents = contents;
     return config;
   });
 };

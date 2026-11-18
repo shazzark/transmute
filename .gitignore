@@ -35,6 +35,8 @@ web-build/
 /g/
 /r/
 /s/
+# Local native snapshots may contain keystores and prior APKs.
+/.local-recovery/
 
 # --- Android build output ---------------------------------------------------
 android/.gradle/

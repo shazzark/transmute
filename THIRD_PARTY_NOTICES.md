@@ -4,11 +4,11 @@ Transmute's own source code is licensed under the MIT License (see `LICENSE`). T
 contains native code built from third-party projects, which keep their own licences. This file
 records what ships, under which terms, and how to obtain and relink the components.
 
-**Status:** the notices below cover the FFmpeg build that the engine actually ships and the
-libraries that build links. A line-by-line audit of every bundled library's licence text is
-tracked as O-4 in `mvp-scope.md` and is a Phase 7 release gate (TR-27); until that audit is
-recorded, treat the per-library entries as the licences those projects state for themselves,
-not as a completed legal review.
+**Status (2026-11-18):** the Android APK inventory and upstream licence declarations have been
+reviewed against `munim-ffmpeg` 0.9.2 and its FFmpeg 9.0.2 build configuration. This is a
+technical inventory, not legal advice or a completed line-by-line review of every bundled
+licence text. Distribution remains blocked: `app/notices.tsx` currently renders no content, and
+the full texts for the non-FFmpeg native dependencies are not yet presented in the app.
 
 ## What ships in the Android app
 
@@ -32,8 +32,24 @@ not as a completed legal review.
 | zlib | upstream release from the build script | zlib licence | Compression. |
 
 The LGPL-3.0 text below governs FFmpeg. The GNU GPL-3.0 text, which the LGPL incorporates by
-reference, is included at `LICENSES/GPL-3.0.txt`. Licences for the other libraries are shipped
-by their upstream projects and are reproduced in the app's notice screen in Phase 7 (TR-27).
+reference, is included at `LICENSES/GPL-3.0.txt`. The remaining upstream notices must be added
+to and verified in an offline in-app notice screen before this beta is distributed.
+
+## Beta review disposition — 2026-11-18
+
+- APK inspection verified `libmunimffmpeg.so` and its ARMv7 native dependencies in the beta
+  package. The package metadata identifies FFmpeg 9.0.2 and the documented `munim-ffmpeg` 0.9.2
+  build. The upstream package states LGPLv3, `--enable-version3`, and no `--enable-gpl` flag;
+  this configuration excludes GPL-only x264/x265 components.
+- The configured static dependencies and their upstream-declared licence families are listed
+  above and in `scripts/ffmpeg-build.md`. LGPL-covered components include FFmpeg, LAME, and
+  FriBidi. The list also identifies BSD, ISC, FTL, MIT-style, zlib, Apache-2.0, and AOM patent
+  licence materials that still need their exact upstream texts and notices checked for the
+  shipped build.
+- `app/notices.tsx` returns `null`, so the application currently presents no third-party licence
+  screen. The APK therefore is not cleared for beta distribution by this review. Add the required
+  texts and attribution in-app, verify the relink instructions against the actual ARMv7 build,
+  then repeat the APK inspection.
 
 ## FFmpeg build configuration and how to reproduce it
 
