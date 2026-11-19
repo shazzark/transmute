@@ -4,11 +4,37 @@ Transmute's own source code is licensed under the MIT License (see `LICENSE`). T
 contains native code built from third-party projects, which keep their own licences. This file
 records what ships, under which terms, and how to obtain and relink the components.
 
-**Status (2026-11-18):** the Android APK inventory and upstream licence declarations have been
-reviewed against `munim-ffmpeg` 0.9.2 and its FFmpeg 9.0.2 build configuration. This is a
-technical inventory, not legal advice or a completed line-by-line review of every bundled
-licence text. Distribution remains blocked: `app/notices.tsx` currently renders no content, and
-the full texts for the non-FFmpeg native dependencies are not yet presented in the app.
+**Status (2026-11-19):** all identified native license texts, including giflib 5.2.1 `COPYING`, are bundled under `LICENSES/` and displayed offline from Settings. The GIFLIB file matches the extracted file from Debian's 444187-byte versioned source archive (SHA-256 `31da5562f44c5f15d63340a09a4fd62b48c45620cd302f77a6d9acf0077879bd`); the COPYING SHA-256 is `0c9b7990ecdca88b676db232c226548ac408b279f550d424d996f0d83591dd8e`. The ARMv7 native library matches the `munim-ffmpeg@0.9.2` archive SHA-256 pinned
+in its package manifest. That archive's build-info lists exact dependency versions, and the
+upstream `v0.9.2` build script at commit `82c828fcd51bbda0f5752da78a714ee9c7e0cde6` pins the
+same versions. The build-info header says `0.8.0`, so it is stale. The version-pinned source
+archives and their original component license/copyright files are checked in under `LICENSES/upstream/`
+and in the local source bundle described in `LICENSES/README.md`.
+
+## Other native code in the Android package
+
+The APK also contains Android framework and React Native runtime libraries. Their presence is
+independent of the FFmpeg engine and is included in the release inventory. Cached Gradle POMs
+confirm the listed artifact versions and license identifiers; Fresco's v3.7.0 source pins the
+statically compiled image codecs. Version-matched full texts for libjpeg-turbo, libpng, giflib,
+libwebp, Fresco, LLVM, Nitro, React Native, Expo, gesture/navigation, and Apache-licensed runtimes
+are in `LICENSES/runtime/` and the offline app notice map. The app map is generated from those
+checked-in texts and the lockfile-installed package licenses.
+
+| Bundled native components | Version / source | License and copyright evidence |
+|---|---|---|
+| `libimagepipeline.so`, `libgifimage.so`, `libnative-filters.so`, `libnative-imagetranscoder.so`, `libstatic-webp.so` | Fresco 3.7.0 | MIT, Meta Platforms, Inc. and affiliates; cached Maven POM and versioned upstream license. Fresco statically compiles libjpeg-turbo 2.1.5.1, libpng 1.6.37, giflib 5.2.1 and libwebp 1.3.2; full binary notices required. |
+| `libreactnative.so`, `libjsi.so`, `libhermesvm.so`, `libhermestooling.so` | React Native 0.88.0 / Hermes artifact 260318099.0.4 | MIT; package metadata. |
+| `libexpo-modules-core.so`, `libexpo-modules-jsi.so`, `libexpo-modules-v2.so`, `libexpo-modules-worklets.so`, `libexpo-sqlite.so`, `libappmodules.so` | Expo 58.0.19 and app modules | MIT; package metadata and local package license files. |
+| `libgesturehandler.so`, `librnscreens.so`, generated screen/gesture codegen libraries, `libreanimated.so`, `libworklets.so`, `libNitroModules.so`, `libNitroMunimFfmpeg.so`, `libnative-filters.so` | React Native community packages | MIT; package metadata and local package license files. |
+| `libfbjni.so` | fbjni 0.7.0 | Apache-2.0; cached POM. |
+| `libdatastore_shared_counter.so` | AndroidX DataStore 1.1.7 | Apache-2.0; cached POM. |
+| `libzstd-kmp.so` | Square zstd-kmp 0.4.0 | Apache-2.0; cached POM. |
+| `libc++_shared.so` | Android NDK 27.1.12297006 | LLVM Project license with LLVM exception; NDK-bundled C++ runtime. |
+
+The offline notice set is complete for the inspected APK inventory. Its full texts are displayed
+in the Settings notices route; version and provenance evidence is recorded in `LICENSES/README.md`
+and `LICENSES/runtime/README.md`.
 
 ## What ships in the Android app
 
@@ -16,26 +42,26 @@ the full texts for the non-FFmpeg native dependencies are not yet presented in t
 |---|---|---|---|
 | FFmpeg | 9.0.2 | **LGPLv3** | Built with `--enable-version3` and **without** `--enable-gpl`, so no x264/x265 and no GPL-only components. Full text below. |
 | `libmunimffmpeg.so` (per ABI) | from `munim-ffmpeg` 0.9.2 | Apache-2.0 (wrapper code) | Statically links the FFmpeg libraries plus the dependencies listed below into one shared object. |
-| LAME (`libmp3lame`) | 3.100 | LGPL-2.x | MP3 encoder. |
-| libopus | upstream release from the build script | BSD-3-Clause | Opus encoder/decoder. |
-| libvpx | upstream release from the build script | BSD-3-Clause | VP8/VP9. |
-| dav1d | upstream release from the build script | BSD-2-Clause | AV1 decoder. |
-| libaom | upstream release from the build script | BSD-2-Clause plus the AOM patent licence | `--disable-decoder=libaom_av1` is set, so it is linked but its AV1 decoder is not built. |
-| openh264 | upstream release from the build script | BSD | Software H.264 encoder fallback. Software H.264 may raise AVC patent licensing questions, which O-4 tracks. |
+| LAME (`libmp3lame`) | 3.100 | GNU Library GPL version 2 | MP3 encoder. |
+| libopus | 1.6.1 | BSD-3-Clause | Opus encoder/decoder. |
+| libvpx | 1.17.0 | BSD-3-Clause | VP8/VP9. |
+| dav1d | 1.5.4 | BSD-2-Clause plus AOMedia patent terms | AV1 decoder. |
+| libaom | 3.15.1 | BSD-2-Clause plus the AOM patent licence | `--disable-decoder=libaom_av1` is set, so it is linked but its AV1 decoder is not built. |
+| openh264 | 2.6.0 | BSD-2-Clause | Software H.264 encoder fallback. Software H.264 may raise AVC patent licensing questions, which O-4 tracks. |
 | libass | 0.17.5 | ISC | Subtitle rendering. |
-| FreeType | upstream release from the build script | FreeType Licence (FTL), with a GPLv2 alternative | Used under the FTL. |
-| HarfBuzz | upstream release from the build script | MIT | Text shaping. |
-| FriBidi | upstream release from the build script | LGPL-2.x | Bidirectional text. |
-| fontconfig | upstream release from the build script | MIT-style fontconfig licence | Font matching. |
-| expat | upstream release from the build script | MIT | XML parser used by fontconfig. |
+| FreeType | 2.14.3 | FreeType Licence (FTL), with a GPLv2 alternative | Used under the FTL. |
+| HarfBuzz | 14.5.1 | MIT | Text shaping. |
+| FriBidi | 1.0.17 | LGPL-2.x | Bidirectional text. |
+| fontconfig | 2.18.3 | MIT-style fontconfig licence | Font matching. |
+| expat | 2.8.5 | MIT | XML parser used by fontconfig. |
 | mbedTLS | 3.6.7 | Apache-2.0 (or GPL-2.0) | TLS. Used under Apache-2.0. |
-| zlib | upstream release from the build script | zlib licence | Compression. |
+| zlib | Android system | zlib licence | Compression. |
 
-The LGPL-3.0 text below governs FFmpeg. The GNU GPL-3.0 text, which the LGPL incorporates by
-reference, is included at `LICENSES/GPL-3.0.txt`. The remaining upstream notices must be added
-to and verified in an offline in-app notice screen before this beta is distributed.
+The applicable full license texts and the AOMedia patent license are included in `LICENSES/` and
+in the offline Settings notice screen. The app's MIT license is in `LICENSE`; the untouched
+canonical GPL-3.0 text used for the LGPL reference is `LICENSES/GPL-3.0-canonical.txt`.
 
-## Beta review disposition — 2026-11-18
+## Beta review disposition (2026-11-19)
 
 - APK inspection verified `libmunimffmpeg.so` and its ARMv7 native dependencies in the beta
   package. The package metadata identifies FFmpeg 9.0.2 and the documented `munim-ffmpeg` 0.9.2
@@ -44,12 +70,13 @@ to and verified in an offline in-app notice screen before this beta is distribut
 - The configured static dependencies and their upstream-declared licence families are listed
   above and in `scripts/ffmpeg-build.md`. LGPL-covered components include FFmpeg, LAME, and
   FriBidi. The list also identifies BSD, ISC, FTL, MIT-style, zlib, Apache-2.0, and AOM patent
-  licence materials that still need their exact upstream texts and notices checked for the
-  shipped build.
-- `app/notices.tsx` returns `null`, so the application currently presents no third-party licence
-  screen. The APK therefore is not cleared for beta distribution by this review. Add the required
-  texts and attribution in-app, verify the relink instructions against the actual ARMv7 build,
-  then repeat the APK inspection.
+  license materials now bundled and surfaced offline in Settings. The source filenames and
+  provenance are recorded in `LICENSES/README.md`.
+- The binary archive SHA-256 matches the exact upstream package manifest. Its source tag and build
+  script pin every native dependency to the versions in the table. The original per-component
+  license and copyright files are included under `LICENSES/upstream/`, and the full matching source
+  archives plus relinking scripts are in the generated native source bundle. The release asset is
+  still required to deliver those sources with the APK.
 
 ## FFmpeg build configuration and how to reproduce it
 

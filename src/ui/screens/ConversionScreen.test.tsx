@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -207,6 +207,33 @@ describe('ConversionScreen Convert action', () => {
     expect(mocks.runConversion).toHaveBeenCalledTimes(1);
     expect(mocks.runConversion).toHaveBeenCalledWith(expect.objectContaining({ source: expect.objectContaining({ name: 'input.mp4' }) }));
     await act(async () => { finishConversion?.({ status: 'done', summary: null, outputPath: '/cache/output.mp4', failure: null }); });
+  });
+
+  it('opens the complete offline license text from Settings with a scrollable back route', async () => {
+    mocks.pathname = '/settings';
+    await act(async () => { renderer.update(React.createElement(ConversionScreen)); });
+
+    await act(async () => { button(renderer, 'Third-party notices and licenses')?.props.onPress(); });
+    expect(mocks.push).toHaveBeenCalledWith('/notices');
+
+    mocks.pathname = '/notices';
+    await act(async () => { renderer.update(React.createElement(ConversionScreen)); });
+    const text = renderer.root.findAll((node) => String(node.type) === 'Text')
+      .map((node) => String(node.props.children)).join('\n');
+    expect(text).toContain('GNU LESSER GENERAL PUBLIC LICENSE');
+    expect(text).toContain('Apache License');
+    expect(text).toContain('AOMedia Patent License');
+      expect(text).toContain('libjpeg-turbo 2.1.5.1');
+      expect(text).toContain('PNG Reference Library License');
+      expect(text).toContain('LLVM Exceptions to the Apache 2.0 License');
+      expect(text).toContain('Fresco 3.7.0');
+      expect(text).toContain('React Native Nitro Modules 0.37.1');
+      expect(text).toContain('AndroidX DataStore 1.1.7');
+      expect(text).toContain('The GIFLIB distribution is Copyright (c) 1997  Eric S. Raymond');
+    expect(renderer.root.findAll((node) => String(node.type) === 'ScrollView').length).toBeGreaterThan(0);
+
+    await act(async () => { button(renderer, 'Back to Settings')?.props.onPress(); });
+    expect(mocks.replace).toHaveBeenCalledWith('/settings');
   });
 
   it('routes Home shortcuts to Convert with their matching output mode selected', async () => {

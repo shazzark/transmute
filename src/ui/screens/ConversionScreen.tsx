@@ -6,6 +6,8 @@ import * as Notifications from 'expo-notifications';
 import * as Sharing from 'expo-sharing';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { usePathname, useRootNavigationState, useRouter } from 'expo-router';
+import { licenseTexts } from '../../content/openSourceLicenseTexts';
+import { nativeRuntimeLicenseTexts } from '../../content/nativeRuntimeLicenseTexts';
 
 import { initialJobState, jobReducer, type JobAction } from '../../application/convertJob';
 import { extractSubtitles } from '../../application/extractSubtitles';
@@ -1494,14 +1496,20 @@ export function ConversionScreen(): React.JSX.Element {
 
           {showNotices ? (
             <View style={styles.section}>
-              <Text style={styles.sectionLabel} accessibilityRole="header">Open-source notices</Text>
-              <Text style={styles.resultTitle}>Transmute application code</Text>
-              <Text style={styles.caption}>MIT License. The full license is included as LICENSE in the Transmute source repository.</Text>
-              <Text style={styles.resultTitle}>Media engine</Text>
-              <Text style={styles.caption}>munim-ffmpeg 0.9.2 includes an Apache-2.0 wrapper and FFmpeg 9.0.2 built under LGPLv3 without GPL codecs. The LGPL text, component notices, source offer, build configuration, and relinking instructions are in THIRD_PARTY_NOTICES.md and scripts/ffmpeg-build.md in the source repository.</Text>
-              <Text style={styles.resultTitle}>Bundled native components</Text>
-              <Text style={styles.caption}>FFmpeg (LGPLv3); LAME and FriBidi (LGPL 2.x); Opus and libvpx (BSD 3-Clause); dav1d and libaom (BSD 2-Clause; libaom also has a patent license); OpenH264 (BSD); libass (ISC); FreeType (FTL); HarfBuzz (MIT); fontconfig (MIT-style); expat (MIT); mbedTLS (Apache 2.0); and zlib (zlib license). The repository notice records upstream terms; a line-by-line audit remains a release gate.</Text>
-              <Text style={styles.caption}>The app performs conversions locally. It does not contact a server to fetch notices or media.</Text>
+              <Text style={styles.sectionLabel} accessibilityRole="header">Open-source notices and licenses</Text>
+              <Text style={styles.caption} accessibilityRole="text">Transmute bundles the components listed below in the statically linked ARMv7 media engine. License text is included in this screen for offline access. Native dependency versions and source-build details are recorded in THIRD_PARTY_NOTICES.md and scripts/ffmpeg-build.md in the source repository.</Text>
+              <Text style={styles.resultTitle} accessibilityRole="header">Android native runtime attributions</Text>
+              <Text style={styles.caption} accessibilityRole="text">The APK includes Fresco 3.7.0 image pipeline code and its statically compiled libjpeg-turbo 2.1.5.1, libpng 1.6.37, giflib 5.2.1, and libwebp 1.3.2 codecs. React Native 0.88.0 and Hermes 260318099.0.4; Expo 58.0.19; Gesture Handler, Screens, Reanimated, Worklets, and Nitro Modules are also bundled. fbjni 0.7.0, AndroidX DataStore 1.1.7, and Square zstd-kmp 0.4.0 use Apache-2.0. libc++_shared.so is from Android NDK 27.1.12297006. Complete component versions, license identifiers, and source provenance are documented in THIRD_PARTY_NOTICES.md.</Text>
+              <Text style={styles.resultTitle} accessibilityRole="header">Component attribution</Text>
+              <Text style={styles.caption} accessibilityRole="text">munim-ffmpeg 0.9.2 wrapper — Apache-2.0. FFmpeg 9.0.2 — LGPLv3. LAME 3.100 — GNU Library GPL version 2; FriBidi 1.0.17 — LGPLv2.1-or-later. Opus 1.6.1 and libvpx 1.17.0 — BSD. dav1d 1.5.4 and libaom 3.15.1 — BSD; both include the applicable AOMedia patent license terms. OpenH264 2.6.0 — BSD. libass 0.17.5 — ISC. FreeType 2.14.3 — FreeType License (FTL). HarfBuzz 14.5.1, fontconfig 2.18.3 and Expat 2.8.5 — their included MIT-style notices. mbedTLS 3.6.7 — Apache-2.0 selected from its dual license. zlib is provided by Android.</Text>
+              <Text style={styles.resultTitle} accessibilityRole="header">Source and relinking</Text>
+              <Text style={styles.caption} accessibilityRole="text">The corresponding Transmute source is published at github.com/shazzark/transmute. Matching native dependency sources and the upstream build/relink scripts are distributed as transmute-v0.2.0-beta.1-native-sources.tar.gz on this beta's GitHub release. The FFmpeg build configuration and relinking route are in scripts/ffmpeg-build.md; the media engine scripts are in the included munim-ffmpeg v0.9.2 source. FFmpeg and other LGPL libraries are statically linked into libmunimffmpeg.so. Their terms require the notices and a practical way to replace the library with a modified compatible build. Transmute does not restrict reverse engineering for debugging such modifications. The app works offline and does not fetch licenses or media.</Text>
+              {Object.entries({ ...licenseTexts, ...nativeRuntimeLicenseTexts }).map(([title, text]) => (
+                <View key={title} style={styles.activityRow}>
+                  <Text style={styles.resultTitle} accessibilityRole="header">{title}</Text>
+                  <Text style={styles.caption} selectable accessibilityRole="text">{text}</Text>
+                </View>
+              ))}
               <SecondaryButton label="Back to Settings" onPress={() => router.replace('/settings' as never)} />
             </View>
           ) : null}

@@ -13,8 +13,12 @@ def transmuteReleaseSigningReady = transmuteReleaseStoreFile != null && transmut
 def transmuteAppProject = project
 
 gradle.taskGraph.whenReady { taskGraph ->
+  // Android's debug task graph can include tasks named preReleaseBuild; only
+  // artifact-producing release tasks should require the private upload key.
+  def releaseArtifactTasks = ['assembleRelease', 'bundleRelease', 'installRelease', 'packageRelease', 'validateSigningRelease']
   def releaseTaskRequested = taskGraph.allTasks.any { task ->
-    task.project == transmuteAppProject && task.name.toLowerCase().contains('release')
+    task.project == transmuteAppProject &&
+      (releaseArtifactTasks.contains(task.name) || task.name.startsWith('signRelease'))
   }
   if (releaseTaskRequested && !transmuteReleaseSigningReady) {
     throw new GradleException('Release build refused: configure TRANSMUTE_RELEASE_STORE_FILE, TRANSMUTE_RELEASE_STORE_PASSWORD, TRANSMUTE_RELEASE_KEY_ALIAS, and TRANSMUTE_RELEASE_KEY_PASSWORD. No debug-key fallback is allowed.')

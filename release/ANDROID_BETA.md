@@ -1,77 +1,61 @@
-# Android beta preparation (draft)
+# Android beta release
 
-**Release target:** `v0.2.0-beta.1` (Android version name `0.2.0-beta.1`, version code 2)
-**State:** Not ready to publish. This is a release checklist and draft notes, not an APK or a claim that every acceptance gate passed.
+**Release:** `v0.2.0-beta.1` (`dev.transmute.app`, version code 2)
 
-## Verified local artifact (2026-11-18)
+**Distribution:** signed ARMv7 APK plus the matching native source bundle
 
-- Path: `android/app/build/outputs/apk/release/app-release.apk`
-- Package/version: `dev.transmute.app`, `0.2.0-beta.1`, version code `2`
-- Size: `60,121,689` bytes
+**Signing:** verified against the owner-provided release keystore fingerprint
+
+## Release gates
+
+- [x] Signing certificate SHA-256 matches the release keystore: `1499d8f46061bcd589aac34bad7987c48bc3109dd923f9b128011ea2d965d662`.
+- [x] Complete the offline native-runtime license set. giflib 5.2.1 COPYING (SHA-256 `0c9b7990ecdca88b676db232c226548ac408b279f550d424d996f0d83591dd8e`) was extracted from the 444187-byte Debian source archive (SHA-256 `31da5562f44c5f15d63340a09a4fd62b48c45620cd302f77a6d9acf0077879bd`); the extracted file matches the bundled text. The offline Settings route is scrollable, has back navigation, and its focused test passed (5 tests).
+- [x] Refreshed native source bundle after adding the complete Android runtime license set; it includes `LICENSES/`, source archives, and FFmpeg/LGPL relinking instructions.
+- [x] QA package `dev.transmute.app.qa` installed alongside the existing `dev.transmute.app`; no uninstall or data clearing was performed. Original app remained version `0.1.0` / code 1 (`firstInstallTime=2026-10-27 15:07:00`, `lastUpdateTime=2026-11-12 12:30:01`).
+- [x] On the Galaxy A13 SM-A135F / Android 14, current-worktree JS converted the compatible 176×144 MP4 to a ready 1.5 MB GIF; in-app preview frames changed during playback.
+- [x] The same 176×144 fixture converted to a ready 295 kB MP4 Result. Logcat and ActivityManager evidence show Transmute remained alive with no crash. Before the attempted Play action, `dumpsys activity` identified `ng.gov.pocacov.pocacov_citizen/.MainActivity` as top-resumed; the screen showed its registration/password form. That establishes another app was foregrounded at that check, with no evidence of a Transmute crash. No further device taps were sent.
+- [x] On the Galaxy A13, played the ready `source-176.mp4` result in the QA package. Two screenshots showed the embedded player advancing from `00:01` to `00:02` with changed test-pattern frames; Logcat showed the 176×144 AVC decoder reaching end of stream. Transmute stayed top-resumed and its PID remained alive; no crash record was found.
+- QA package evidence remains local under ignored `.local-recovery/`: debug APK SHA-256 `7f836a120c7e23f7fbcd4276efa961974a6995edecee44eac94bd627ff3ddeb7`. The QA APK was built from the native Android project at source base commit `addf4585bff543700cb8d40f20e84cd51115d004`; its JavaScript bundle was served from the modified, uncommitted worktree through Metro. The eventual signed distributable APK will be a separate release build with the same source edits compiled into it.
+- [x] Automated source checks: `npm run typecheck`; `npm test` (34 files, 433 tests).
+- [ ] Build and verify the final signed release APK and checksum.
+- [ ] Publish the GitHub prerelease, APK, checksum and source bundle; then update and push the website asset URLs and verify Vercel and downloaded checksum.
+
+## Native licenses and source
+
+The APK packages `libNitroMunimFfmpeg.so` for `armeabi-v7a`; native components and source versions are listed in `THIRD_PARTY_NOTICES.md`. Full applicable texts, notices and patent terms are bundled in the app and available offline from **Settings → Third-party notices and licenses**. The screen scrolls through the texts and provides back navigation. `LICENSES/README.md` records source URLs and version provenance. The public app source revision and native source bundle accompany the APK; see `release/NATIVE_SOURCE_BUNDLE.md` for the v0.9.2 source tag and its stale upstream `build-info.txt` header note.
+
+The final app must retain those source-distribution and replacement/relinking materials beside the APK. Do not include local signing credentials or QA evidence in Git or the public source archive.
+
+## APK verification record
+
+Complete after the final release build:
+
+- Artifact: `transmute-v0.2.0-beta.1-armv7.apk`
+- Package/version: `dev.transmute.app`, `0.2.0-beta.1`, version code 2
+- Minimum Android: 7.0 (API 24)
 - ABI: `armeabi-v7a` only
-- APK Signature Scheme v2: valid; signer certificate SHA-256: `1499d8f46061bcd589aac34bad7987c48bc3109dd923f9b128011ea2d965d662`
-- APK SHA-256: `1a2cd970c48f5bfc48f9b1ad290c1df807b2d3921fa8025b79e2b9810c96416c`
+- APK Signature Scheme v2 and certificate SHA-256: verify against the fingerprint above
+- APK SHA-256 and byte size: record from the final file and checksum sidecar
+- Source revision: record the commit used for the final public application source
 
-This certificate differs from the A13's installed debug certificate (`fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`). Do not install this package over that app. The dedicated keystore was not accessible in this workspace to independently compare its public certificate with the APK signer, so the dedicated-key match remains unverified. Keep the checksum sidecar and device QA evidence under ignored `.local-recovery/`.
+Use `scripts/build-android.ps1 -PrebuildOnly` to regenerate and version-check the native project. The script backs up generated sources, signing material, and prior APK outputs under ignored `.local-recovery/`. Then run `scripts/build-android.ps1 -Release -SkipPrebuild`; it prompts locally for the dedicated keystore, alias and passwords. Do not place passwords in a command line, environment file, chat, or Git.
 
-For A13 QA, a separate `dev.transmute.app.qa` APK was built with the Android debug key and installed side by side. It launched on the SM-A135F / Android 14 device. The original `dev.transmute.app` remains version `0.1.0` / code 1 with `firstInstallTime=2026-10-27 15:07:00` and `lastUpdateTime=2026-11-12 12:30:01`. QA APK, screenshot, UI hierarchy and build transcript are local-only under ignored `.local-recovery/`; the QA package is not a release artifact. This is launch smoke evidence, not a completed conversion acceptance pass.
+## Tester installation
 
-## Draft release notes
+Download the APK and `.sha256` file from the GitHub prerelease and verify the APK SHA-256 before installation. Allow installation for the browser or file manager that opened the APK, then confirm the Android package installer. The release package is signed with the verified upload key. Keep the existing Transmute installation and its data; the separate QA package was used for device testing.
 
-Transmute is an offline Android media converter. This beta adds/contains:
+## Known beta limitations
 
-- Video to animated GIF with clip start/end, output width, frame rate, preserved aspect ratio, and silent output.
-- SQLite-backed local history and app-owned Results storage.
-- Optional embedded subtitle carry-through into supported video output conversions; use Captions in Results when the Android player exposes tracks.
-- In-app preview of extracted SRT and VTT files.
-- Save to Phone and Share as separate actions.
+- Only 32-bit ARMv7 (`armeabi-v7a`) is included; ARM64-only and x86 devices are unsupported by this APK.
+- Device acceptance covered one Samsung Galaxy A13 on Android 14. Android 7+ is the configured minimum, not a broad device-compatibility claim.
+- The tested A13 hardware encoder rejects 160×144 input for MP4 and requires at least 176×144; the supplied 176×144 fixture succeeds.
+- OGG/Vorbis encoding is unavailable because this build does not include `libvorbis`.
+- In tests on this device, embedded subtitle tracks in MOV and WebM were not exposed by the Android playback stack.
+- MP4 playback and GIF animated playback passed in the QA package loaded from the current worktree through Metro. Final release APK verification and post-install phone recheck remain pending.
+- Active conversion cancellation/failure cleanup, a second-device acceptance run and a comprehensive accessibility review remain outstanding.
 
-Verified on a Samsung Galaxy A13 (SM-A135F, Android 14): GIF conversion, 72-frame animation, in-app playback after offline relaunch, Save to Phone and Share chooser; embedded SRT-to-MP4 caption playback over moving video; MKV caption track selection; and direct SRT/VTT preview evidence recorded in `tasks.md`.
+## Release notes
 
-Known limits: the tested MOV and WebM subtitle tracks are not exposed by this device's player; OGG/Vorbis is unavailable; active conversion cancellation/failure cleanup, second-device acceptance, and full accessibility review remain open. The native inventory identifies LGPLv3 FFmpeg statically linked into `libmunimffmpeg.so` plus the libraries listed in `THIRD_PARTY_NOTICES.md`; however, the app's Notices route renders no content, so the in-app notice/relink presentation is not ready for distribution. Only ARMv7 is in this APK; do not claim other ABIs as beta-tested. This is not a production release.
+Transmute converts video and extracts audio locally on Android. This beta includes video conversion to MP4, MKV, MOV, WebM and animated GIF; audio extraction; subtitle tools; local conversion history and Results; and offline third-party notices.
 
-Download: `transmute-v0.2.0-beta.1-armv7.apk` (60,121,689 bytes; Android 7.0+; `armeabi-v7a` only).
-
-SHA-256: `1a2cd970c48f5bfc48f9b1ad290c1df807b2d3921fa8025b79e2b9810c96416c` (also attach `transmute-v0.2.0-beta.1-armv7.apk.sha256`).
-
-Install: download the APK and checksum file, verify SHA-256, allow installs for the browser or file manager that opened the APK, then tap the APK and confirm. This package cannot update a debug-signed `dev.transmute.app` install without removing that app and its private data. Use a separate test package or a device without existing Transmute data.
-
-## Signing gate
-
-The current installed APK uses the local Android debug/test certificate and must not be uploaded to testers. Keep the dedicated upload keystore outside the repository. If it does not exist, create it in the user profile with PowerShell; `keytool` prompts for passwords, so do not add password arguments:
-
-```powershell
-$env:JAVA_HOME = Join-Path $env:USERPROFILE '.gradle\jdks\eclipse_adoptium-17-amd64-windows.2'
-$keystorePath = Join-Path $env:USERPROFILE 'transmute-upload.jks'
-& (Join-Path $env:JAVA_HOME 'bin\keytool.exe') -genkeypair -v -keystore $keystorePath -alias transmute-upload -keyalg RSA -keysize 4096 -validity 10000
-```
-
-The command is also valid with `keytool` on `PATH`; at its key-password prompt, press Enter to use the keystore password. Never paste passwords into chat or commit them.
-
-Use `scripts/build-android.ps1 -PrebuildOnly` to regenerate Android from Expo config. The script backs up generated native sources, local signing material, and previous APK outputs under `.local-recovery/`, then verifies the generated `versionName` and `versionCode` against `app.json`. Build only after that check succeeds with `scripts/build-android.ps1 -Release -SkipPrebuild`. It prompts locally for the keystore path, alias, and passwords, passes them to Gradle through process-only environment variables, and clears them from its process environment afterward. The Expo config plugin signs release builds only with those credentials; `assembleRelease` fails before task execution if any credential is missing or the keystore path is invalid. There is no debug-key fallback.
-
-The beta artifact is ARMv7 only (`armeabi-v7a`) for the verified Galaxy A13 target. Record `Get-FileHash android\app\build\outputs\apk\release\app-release.apk -Algorithm SHA256`, verify the APK signature and certificate against the dedicated keystore, and inspect its native library entries before sharing. Do not install it over the existing A13 until checking its certificate: a different signing key cannot update the current package in place without uninstalling and losing app data. If the key differs, use a second device or a separate QA package ID for testing. Do not publish this draft until those checks and the remaining release gates have explicit dispositions.
-
-## GitHub Release upload steps
-
-After the signing-key match, notice-screen correction, and device QA gates are resolved:
-
-1. In GitHub, open **Releases → Draft a new release** for `shazzark/transmute`.
-2. Create/select tag `v0.2.0-beta.1` on the reviewed beta-preparation commit and use the title **Transmute Android beta 0.2.0-beta.1**.
-3. Paste the draft release notes above, attach `transmute-v0.2.0-beta.1-armv7.apk` and a SHA-256 checksum file, and keep the release in draft until signing, license-notice, and device checks pass.
-4. Verify the published APK asset resolves at the prepared URL in `website/index.html`, and verify the release-notes link opens the published `v0.2.0-beta.1` page.
-5. After the release gates pass and a downloadable asset exists, update the website availability message and exact asset link. Deploy `website/` through the Transmute Vercel project with Root Directory `website`, Framework Preset `Other`, blank Build Command, Output Directory `.`, and no environment variables. Verify the production URL and asset link at mobile and desktop sizes.
-6. Share that verified Pages URL with testers. Do not send a debug-signed APK or link to a draft release.
-
-## Draft installation instructions
-
-Download `transmute-v0.2.0-beta.1-armv7.apk` and verify its SHA-256 against the release checksum file before installing. On Android, allow installs for the browser or file manager that opened the APK, then tap the downloaded file and confirm installation. This package cannot update the currently installed debug-signed `dev.transmute.app` on the A13; doing so would require uninstalling the existing app and would delete its private data. Test only with a separately identified package build or a device without existing Transmute data. Re-enable the install restriction after setup if desired.
-
-## Second-device checklist (pending)
-
-- Install the signed APK over an existing test install, then cold-launch it.
-- Convert a short local video to GIF; confirm motion in Results, save a copy, and open Share without sending.
-- Convert a video with embedded SRT to MP4/MKV and confirm the caption track can be selected and displayed.
-- Disable network access, force-stop, relaunch, and reopen the GIF and subtitle Result.
-- Confirm Results and exported files from before the install are still present.
-- Record model, Android version, ABI, APK SHA-256, and each outcome in `tasks.md`.
+The beta is for testing. It supports ARMv7 devices running Android 7.0 or later, subject to device codec capabilities. See the known limitations and verify the published APK checksum before installing. The APK is distributed with the matching native source bundle and notices.

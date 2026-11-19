@@ -97,6 +97,7 @@ junit.xml
 /maestro-artifacts/
 /e2e/screenshots/
 /e2e/videos/
+/.playwright-mcp/
 .detox/
 artifacts/
 

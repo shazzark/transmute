@@ -10,7 +10,7 @@ licence texts and the relink statement live in [`../THIRD_PARTY_NOTICES.md`](../
 The libraries come from the [`munim-ffmpeg`](https://github.com/munimtechnologies/munim-ffmpeg)
 package (Apache-2.0, version 0.9.2). Its published tarball contains prebuilt `libmunimffmpeg.so`
 files for three ABIs; the build scripts that generate them are published in the same repository
-under `scripts/ffmpeg/`:
+under `scripts/ffmpeg/` at immutable tag `v0.9.2` (commit `82c828fcd51bbda0f5752da78a714ee9c7e0cde6`):
 
 | Script | Job |
 |---|---|
@@ -31,12 +31,12 @@ the ones the script assumes, so `ANDROID_NDK` must be set explicitly.
 - NDK `27.1.12297006` by default, overridable with `ANDROID_NDK` / `ANDROID_NDK_HOME`.
 - `ANDROID_API` defaults to `24`; the project compiles against the API 26 floor of the app.
 - `CFLAGS="-O2 -fPIC -DANDROID -ffunction-sections -fdata-sections"`, with `-mfpu=neon -mfloat-abi=softfp` added for `armeabi-v7a`.
-- `LDFLAGS="-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384"` — 16 KB page alignment, required by newer Android kernels.
+- `LDFLAGS="-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384"` â€” 16 KB page alignment, required by newer Android kernels.
 - `armeabi-v7a` builds libvpx with its `generic-gnu` target because NDK 27's clang rejects `-march=armv7-a` for that triple.
 
 ## The exact `configure` invocation
 
-Copied verbatim from `scripts/ffmpeg/build-android.sh` (upstream `main` as of 2026-10-27):
+Copied verbatim from `scripts/ffmpeg/build-android.sh` at upstream tag `v0.9.2` (commit `82c828fcd51bbda0f5752da78a714ee9c7e0cde6`):
 
 ```bash
 "$SOURCE/configure" \
@@ -66,10 +66,9 @@ Copied verbatim from `scripts/ffmpeg/build-android.sh` (upstream `main` as of 20
   --disable-v4l2-m2m --disable-indev=android_camera \
 ```
 
-Dependency versions pinned in that script: LAME 3.100, libass 0.17.5, mbedTLS 3.6.7, plus
-libopus, libvpx, dav1d, libaom, openh264, FreeType, HarfBuzz, FriBidi, fontconfig, expat and zlib
-fetched from their own upstream releases. Fontconfig is built with Meson, with
-`-Ddefault-fonts-dirs=/system/fonts`.
+The script pins LAME 3.100, Opus 1.6.1, libvpx 1.17.0, dav1d 1.5.4, libaom 3.15.1,
+OpenH264 2.6.0, FreeType 2.14.3, FriBidi 1.0.17, HarfBuzz 14.5.1, Expat 2.8.5,
+fontconfig 2.18.3, libass 0.17.5 and mbedTLS 3.6.7. zlib is provided by Android.
 
 ## What the flags mean for Transmute
 
@@ -78,13 +77,13 @@ fetched from their own upstream releases. Fontconfig is built with Meson, with
 | `--enable-version3`, no `--enable-gpl` | The result is **LGPLv3**, not LGPLv2.1, and contains no GPL-only component: no x264, no x265. That is why the app itself can be MIT-licensed. |
 | `--enable-mediacodec --enable-jni` | Hardware H.264/HEVC encoding through Android's MediaCodec (`h264_mediacodec`, `hevc_mediacodec`). |
 | `--enable-libopenh264` | Software H.264 fallback. There is **no** software HEVC encoder, so HEVC is unsupported on a device whose SoC exposes no hardware encoder. |
-| `--enable-network` with `http`, `https`, `tls`, `crypto` protocols | The engine *can* open network URLs. The app's offline promise is therefore enforced by the absent `INTERNET` permission and by an argument policy that accepts local paths only — not by the engine lacking the capability. `trd.md` constraint 5 records this. |
+| `--enable-network` with `http`, `https`, `tls`, `crypto` protocols | The engine *can* open network URLs. The app's offline promise is therefore enforced by the absent `INTERNET` permission and by an argument policy that accepts local paths only â€” not by the engine lacking the capability. `trd.md` constraint 5 records this. |
 | `--disable-programs` | No `ffmpeg`/`ffprobe` executables are shipped; the tool entry points are built as libraries by `build-android-fftools.sh`. |
 | `--enable-static --disable-shared` | Everything is linked into `libmunimffmpeg.so` per ABI. This is the static-linking case the LGPL permits only when a relink route exists, so the route below is part of the notice. |
 
 ## Rebuilding and relinking a modified FFmpeg
 
-The route, in order. **Not yet executed in this project** — it is recorded as the documented
+The route, in order. **Not yet executed in this project** â€” it is recorded as the documented
 method and is validated the first time a modified build is actually needed:
 
 1. Clone <https://github.com/munimtechnologies/munim-ffmpeg> at the tag matching the installed
@@ -100,4 +99,3 @@ method and is validated the first time a modified build is actually needed:
 
 Steps 4 and 5 use the same packaging route the app uses for its own native code. A rebuilt library
 is not a supported configuration, and Transmute offers no support for it.
-
